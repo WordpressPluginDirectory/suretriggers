@@ -68,6 +68,9 @@ class Voxel extends Integrations {
 				'ID'         => $post_id,
 				'post_title' => $post_title,
 			];
+			if ( isset( $fields['post_status'] ) && '' !== $fields['post_status'] ) {
+				$args['post_status'] = $fields['post_status'];
+			}
 			wp_update_post( $args );
 		}
 		$post_type   = \Voxel\Post_Type::get( $post_type );
@@ -90,6 +93,33 @@ class Voxel extends Integrations {
 
 			// If field is ui-step, ui-html and ui-heading, then skip.
 			if ( in_array( $field_type, [ 'ui-step', 'ui-html', 'ui-heading', 'ui-image' ], true ) ) {
+				continue;
+			}
+
+			// Update the repeater field data.
+			if ( 'repeater' === $field_type ) {
+				$repeater_fields       = $field['fields'];
+				$repeater_values_final = [];
+				if ( count( $repeater_fields ) > 1 ) {
+					foreach ( $fields[ $field_key ] as $row_index => $row_values ) {
+						$repeater_value = [];
+			
+						foreach ( $repeater_fields as $input_key => $input_field ) {
+							if ( isset( $row_values[ $input_field['key'] ] ) ) {
+								$repeater_value[ $input_field['key'] ] = $row_values[ $input_field['key'] ];
+							}
+						}
+			
+						if ( ! empty( $repeater_value ) ) {
+							$repeater_values_final[] = $repeater_value;
+						}
+					}
+				}
+			
+				if ( ! empty( $repeater_values_final ) ) {
+					$post_field->update( $repeater_values_final );
+				}
+			
 				continue;
 			}
 
@@ -126,46 +156,35 @@ class Voxel extends Integrations {
 
 			// Update work hours field.
 			if ( 'work-hours' === $field_type ) {
-				$work_hours_value = [];
-				$work_days_value  = [];
-				$field_value      = [];
+				$schedules = [];
 
-				foreach ( $field_inputs as $input_key => $input_field ) {
-					if ( 'work_days' === $input_field['key'] && isset( $fields[ $field_key . '_' . $input_field['key'] ] ) ) {
-						$work_days_value = explode( ',', $fields[ $field_key . '_' . $input_field['key'] ] );
-
-						$field_value['days'] = array_map(
-							function( $day ) {
-								return trim( $day );
-							},
-							$work_days_value
-						);
+				foreach ( $fields[ $field_key ] as $schedule ) {
+					$work_days_value = [];
+					$field_value     = [];
+					if ( isset( $schedule['work_days'] ) ) {
+						$work_days_value     = explode( ',', $schedule['work_days'] );
+						$field_value['days'] = $work_days_value;
+					}
+					if ( array_key_exists( 'work_hours', $schedule ) && isset( $schedule['work_hours'] ) ) {
+						$work_hours_array     = explode( '-', $schedule['work_hours'] );
+						$formatted_work_hours = [
+							[
+								'from' => isset( $work_hours_array[0] ) ? $work_hours_array[0] : '',
+								'to'   => isset( $work_hours_array[1] ) ? $work_hours_array[1] : '',
+							],
+						];
+						$field_value['hours'] = $formatted_work_hours;
+					}
+					if ( isset( $schedule['work_status'] ) ) {
+						$field_value['status'] = $schedule['work_status'];
 					}
 
-					if ( 'work_hours' === $input_field['key'] && isset( $fields[ $field_key . '_' . $input_field['key'] ] ) && '' !== trim( $fields[ $field_key . '_' . $input_field['key'] ] ) ) {
-						$work_hours_value = explode( ',', $fields[ $field_key . '_' . $input_field['key'] ] );
-
-						foreach ( $work_hours_value as $wkey => $wvalue ) {
-							$work_hours_item = explode( '-', $wvalue );
-
-							if ( 2 === count( $work_hours_item ) ) {
-								$work_hours_value[ $wkey ] = [
-									'from' => trim( $work_hours_item[0] ),
-									'to'   => trim( $work_hours_item[1] ),
-								];
-							}
-						}
-
-						$field_value['hours'] = $work_hours_value;
-					}
-
-					if ( 'work_status' === $input_field['key'] && isset( $fields[ $field_key . '_' . $input_field['key'] ] ) ) {
-						$field_value['status'] = $fields[ $field_key . '_' . $input_field['key'] ];
+					if ( ! empty( $field_value ) ) {
+						$schedules[] = $field_value;
 					}
 				}
-
-				if ( ! empty( $field_value ) ) {
-					$post_field->update( [ $field_value ] );
+				if ( ! empty( $schedules ) ) {
+					$post_field->update( $schedules );
 				}
 
 				continue;

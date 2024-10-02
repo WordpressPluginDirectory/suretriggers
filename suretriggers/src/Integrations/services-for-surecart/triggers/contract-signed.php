@@ -14,6 +14,7 @@
 namespace SureTriggers\Integrations\ServicesForSureCart\Triggers;
 
 use SureTriggers\Controllers\AutomationController;
+use SureTriggers\Integrations\WordPress\WordPress;
 use SureTriggers\Traits\SingletonLoader;
 
 if ( ! class_exists( 'ContractSigned' ) ) :
@@ -90,7 +91,11 @@ if ( ! class_exists( 'ContractSigned' ) ) :
 		 */
 		public function trigger_listener( $contract_data ) {
 			
-			$context['contract_data'] = $contract_data;
+			global $wpdb;
+			$service_result = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}surelywp_sv_services WHERE service_id = %d", $contract_data['service_id'] ), ARRAY_A );
+			$user_data      = WordPress::get_user_context( $service_result['user_id'] );
+			unset( $service_result['user_id'] );
+			$context = array_merge( $contract_data, $user_data, $service_result );
 			AutomationController::sure_trigger_handle_trigger(
 				[
 					'trigger' => $this->trigger,

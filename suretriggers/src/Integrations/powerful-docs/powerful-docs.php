@@ -11,6 +11,7 @@ namespace SureTriggers\Integrations\PowerfulDocs;
 use SureTriggers\Controllers\IntegrationsController;
 use SureTriggers\Integrations\Integrations;
 use SureTriggers\Traits\SingletonLoader;
+use PowerfulDocs\Loader;
 
 /**
  * Class SureTrigger
@@ -45,7 +46,7 @@ class PowerfulDocs extends Integrations {
 	 * @return bool
 	 */
 	public function is_plugin_installed() {
-		return class_exists( 'PFD_Loader' );
+		return class_exists( '\PowerfulDocs\Loader' );
 	}
 }
 

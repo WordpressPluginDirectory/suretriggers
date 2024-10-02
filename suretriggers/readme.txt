@@ -3,7 +3,7 @@ Contributors: sujaypawar, wpcrafter
 Tags: automation, google sheets, webhooks, schedule, SureCart
 Requires at least: 5.4
 Tested up to: 6.6
-Stable tag: 1.0.57
+Stable tag: 1.0.61
 Requires PHP: 5.6
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -326,6 +326,34 @@ Yes, if you have apps that are not yet integrated with SureTriggers, please subm
 4. Dashboard of your task consumption.
 
 == Changelog ==
+
+= Version 1.0.61 - Wednesday, 2nd October 2024 =
+* Improvement: "CartFlows" - Added new Triggers
+* Improvement: "SureForms" - Added new Action
+* Improvement: "Advanced Custom Fields" - Added new Actions
+* Improvement: "WooCommerce" - Resolved checkbox issue for "Create Coupon" Action
+* Improvement: "Bricks Builder" - Resolved trigger response issue with name attribute for "Form Submitted" Trigger
+* Improvement: "BuddyBoss" - Added improvement for different field types in "Set User Extended Profile" Action
+* Improvement: "LearnDash" - Added improvements for group courses in Triggers
+* Improvement: "WordPress" - Added improvement for default taxonomy in "Create/Update Post" Action
+* Improvement: "WordPress" - Added new Actions
+
+= Version 1.0.60 - Wednesday, 18th September 2024 =
+* Improvement: "WordPress" - Added support for taxonomy and featured images in "Create/Update Post" Action
+* Improvement: "WooCommerce Subscriptions" - Added new Actions
+* Improvement: "Voxel" - Added status field support for "Update Post" Action
+
+= Version 1.0.59 - Thursday, 5th September 2024 =
+* Improvement: "BuddyBoss" - Added new Triggers
+* Improvement: "Powerful Docs" - Added improvements in "Feedback Received" Trigger and removed deprecated Action
+* Improvement: "LearnDash" - Added improvements in "User Added to Group" Trigger and added new "List User Enrolled Courses" Action
+
+= Version 1.0.58 - Tuesday, 3rd September 2024 =
+* New: Added "Services For SureCart" Integration
+* Improvement: "Voxel" - Added new Triggers and Actions
+* Improvement: "Advanced Custom Fields" - Added fix for listing fields in Actions
+* Improvement: "TutorLMS" - Added fix for response in "User Enrolls in Course" Trigger
+* Improvement: "LatePoint" - Added fix for listing custom fields in Actions
 
 = Version 1.0.57 - Tuesday, 20th August 2024 =
 * Improvement: "Bricks Builder" - Added improvements for form response with empty labels

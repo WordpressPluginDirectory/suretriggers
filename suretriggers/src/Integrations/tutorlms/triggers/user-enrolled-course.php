@@ -84,21 +84,11 @@ class UserEnrolledCourse {
 	 * @return void
 	 */
 	public function trigger_listener( $course_id, $user_id, $is_enrolled ) {
-		$course                  = get_post( $course_id );
+		$context                 = array_merge(
+			WordPress::get_user_context( $user_id ),
+			WordPress::get_post_context( $course_id )
+		);
 		$context['tutor_course'] = $course_id;
-
-		if ( ! $course instanceof WP_Post ) {
-			return;
-		}
-		$context['course_title'] = $course->post_title;
-
-		$context['course_material_included'] = get_post_meta( $course_id, '_tutor_course_material_includes', true ) ? get_post_meta( $course_id, '_tutor_course_material_includes', true ) : '';
-		$context['course_reqs']              = get_post_meta( $course_id, '_tutor_course_requirements', true ) ? get_post_meta( $course_id, '_tutor_course_requirements', true ) : '';
-		$context['course_benefits']          = get_post_meta( $course_id, '_tutor_course_benefits', true ) ? get_post_meta( $course_id, '_tutor_course_benefits', true ) : '';
-		$context['course_audience']          = get_post_meta( $course_id, '_tutor_course_target_audience', true ) ? get_post_meta( $course_id, '_tutor_course_target_audience', true ) : '';
-		$context['course_level']             = get_post_meta( $course_id, '_tutor_course_level', true ) ? get_post_meta( $course_id, '_tutor_course_level', true ) : '';
-
-		$context['enrollment_user'] = WordPress::get_user_context( $user_id );
 		AutomationController::sure_trigger_handle_trigger(
 			[
 				'trigger' => $this->trigger,

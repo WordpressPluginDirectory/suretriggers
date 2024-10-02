@@ -111,25 +111,96 @@ class CreatePost extends AutomateAction {
 			if ( $post_exists ) {
 				$result_arr['ID'] = $post_exists->ID;
 				wp_update_post( $result_arr );
-				return get_post( $post_exists->ID );
+				$last_response = get_post( $post_exists->ID );
+				$post_id       = $post_exists->ID;
 			} else {
 				throw new Exception( 'The URL entered is incorrect. Please provide the correct URL for the post' );
 			}       
-		}
+		} else {
 		
-		$post_id = wp_insert_post( $result_arr );
+			$post_id = wp_insert_post( $result_arr );
 
-		if ( ! $post_id || is_wp_error( $post_id ) ) {
-			$this->set_error(
-				[
-					'post_data' => $result_arr,
-					'msg'       => __( 'Failed to insert post!', 'suretriggers' ),
-				]
-			);
-			return false;
+			if ( ! $post_id || is_wp_error( $post_id ) ) {
+				$this->set_error(
+					[
+						'post_data' => $result_arr,
+						'msg'       => __( 'Failed to insert post!', 'suretriggers' ),
+					]
+				);
+				return false;
+			}
 		}
 
-		return get_post( $post_id );
+		$last_response     = get_post( $post_id );
+		$response_taxonomy = '';
+		$taxonomy_terms    = [];
+
+		if ( ! empty( $selected_options['taxonomy'] ) ) {
+			$uncategorized_term = get_term_by( 'slug', 'uncategorized', 'category' );
+
+			if ( $uncategorized_term && isset( $uncategorized_term->term_id ) ) {
+				wp_remove_object_terms( $post_id, $uncategorized_term->term_id, 'category' );
+			}
+		}
+
+		// Set taxonomy terms for new post.
+		if ( isset( $selected_options['taxonomy'] ) && isset( $selected_options['taxonomy_term'] ) ) {
+
+			$terms    = [];
+			$taxonomy = $selected_options['taxonomy'];
+
+			foreach ( $selected_options['taxonomy_term'] as $term ) {
+				$terms[] = (int) $term['value']; 
+			}
+			wp_set_object_terms( $post_id, $terms, $taxonomy, true );
+			$response_taxonomy = get_object_taxonomies( get_post_type( $post_id ) );
+			foreach ( $response_taxonomy as $taxonomy_name ) {
+				$terms = wp_get_post_terms( $post_id, $taxonomy_name );
+				if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+					foreach ( $terms as $term ) {
+						$taxonomy_terms[] = $term;
+					}
+				}           
+			}
+		}
+
+			
+
+		if ( ! empty( $selected_options['featured_image'] ) ) {
+			$image_url = $selected_options['featured_image'];
+			require_once ABSPATH . 'wp-admin/includes/media.php';
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+			require_once ABSPATH . 'wp-admin/includes/image.php';
+
+			// Prevents double image downloading.
+			$existing_media_id = absint( attachment_url_to_postid( $image_url ) ); // phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.attachment_url_to_postid_attachment_url_to_postid
+
+			if ( 0 !== $existing_media_id ) {
+				$image_url = $existing_media_id;
+			}
+
+			$attachment_id = media_sideload_image( $image_url, $post_id, null, 'id' );
+			if ( isset( $selected_options['featured_image'] ) && ! $attachment_id || is_wp_error( $attachment_id ) ) {
+
+				return (object) [
+					$last_response,
+					'taxonomy_term'      => $taxonomy_terms,
+					'featured_image_url' => 'Failed to set featured image',
+					
+				];
+			}
+
+			// Assign the downloaded attachment ID to the post.
+			set_post_thumbnail( $post_id, $attachment_id );
+		}
+		$featured_image_url = get_the_post_thumbnail_url( $post_id, 'full' );
+
+		return (object) [
+			$last_response,
+			'taxonomy_term'      => $taxonomy_terms,
+			'featured_image_url' => $featured_image_url,
+		];
+
 	}
 }
 

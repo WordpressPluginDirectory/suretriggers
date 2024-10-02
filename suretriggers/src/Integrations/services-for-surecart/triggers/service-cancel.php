@@ -14,6 +14,7 @@
 namespace SureTriggers\Integrations\ServicesForSureCart\Triggers;
 
 use SureTriggers\Controllers\AutomationController;
+use SureTriggers\Integrations\WordPress\WordPress;
 use SureTriggers\Traits\SingletonLoader;
 
 if ( ! class_exists( 'ServiceCancel' ) ) :
@@ -93,8 +94,10 @@ if ( ! class_exists( 'ServiceCancel' ) ) :
 		public function trigger_listener( $service_id, $order_id, $product_id ) {
 			global $wpdb;
 
-			$result  = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}surelywp_sv_services WHERE service_id = %d AND order_id = %d AND product_id = %d", $service_id, $order_id, $product_id ), ARRAY_A );
-			$context = $result;
+			$result    = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}surelywp_sv_services WHERE service_id = %d AND order_id = %d AND product_id = %d", $service_id, $order_id, $product_id ), ARRAY_A );
+			$user_data = WordPress::get_user_context( $result['user_id'] );
+			unset( $result['user_id'] );
+			$context = array_merge( $result, $user_data );
 			AutomationController::sure_trigger_handle_trigger(
 				[
 					'trigger' => $this->trigger,

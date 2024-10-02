@@ -90,7 +90,15 @@ if ( ! class_exists( 'NewServiceCreation' ) ) :
 		 * @return void
 		 */
 		public function trigger_listener( $service_data ) {
-			$context = $service_data;
+
+			$service_data_arr = [
+				'service_setting_id' => $service_data['service_id'],
+				'order_id'           => $service_data['order_id'],
+				'product_id'         => $service_data['product_id'],
+				'service_status'     => $service_data['service_status'],
+				'delivery_date'      => $service_data['delivery_date'],
+			];
+			$context          = array_merge( $service_data_arr, WordPress::get_user_context( $service_data['user_id'] ) );
 			AutomationController::sure_trigger_handle_trigger(
 				[
 					'trigger' => $this->trigger,

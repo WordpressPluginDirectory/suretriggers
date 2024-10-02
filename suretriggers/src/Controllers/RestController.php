@@ -16,6 +16,7 @@ namespace SureTriggers\Controllers;
 use Exception;
 use SureTriggers\Integrations\WordPress\WordPress;
 use SureTriggers\Traits\SingletonLoader;
+use SureTriggers\Models\SaasApiToken;
 use WP_REST_Request;
 use WP_REST_Response;
 
@@ -44,7 +45,7 @@ class RestController {
 	 * Initialise data.
 	 */
 	public function __construct() {
-		$this->secret_key = OptionController::get_option( 'secret_key' );
+		$this->secret_key = SaasApiToken::get();
 		add_filter( 'determine_current_user', [ $this, 'basic_auth_handler' ], 20 );
 	}
 
@@ -308,8 +309,8 @@ class RestController {
 	 */
 	public function connection_update( $request ) {
 		$secret = $request->get_param( 'secret_key' );
-		if ( $secret ) {
-			OptionController::set_option( 'secret_key', $request->get_param( 'secret_key' ) );
+		if ( $secret && is_string( $secret ) ) {
+			SaasApiToken::save( $secret );
 		}
 	}
 
@@ -320,8 +321,7 @@ class RestController {
 	 * @return WP_REST_Response
 	 */
 	public function connection_disconnect( $request ) {
-		OptionController::set_option( 'secret_key', null );
-
+		SaasApiToken::save( null );
 		return self::success_message();
 	}
 

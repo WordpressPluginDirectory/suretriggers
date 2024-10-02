@@ -24,6 +24,7 @@ use SureTriggers\Controllers\RestController;
 use SureTriggers\Controllers\RoutesController;
 use SureTriggers\Controllers\SettingsController;
 use SureTriggers\Traits\SingletonLoader;
+use SureTriggers\Models\SaasApiToken;
 use function add_menu_page;
 use function add_submenu_page;
 
@@ -64,6 +65,8 @@ class Loader {
 		add_action( 'admin_notices', [ $this, 'display_notice' ] );
 
 		add_action( 'wp_dashboard_setup', [ $this, 'add_dashboard_widgets' ] );
+
+		add_action( 'plugins_loaded', [ $this, 'suretriggers_stwp_iframe_data' ] );
 	}
 
 	/**
@@ -177,8 +180,8 @@ class Loader {
 		define( 'SURE_TRIGGERS_BASE', plugin_basename( SURE_TRIGGERS_FILE ) );
 		define( 'SURE_TRIGGERS_DIR', plugin_dir_path( SURE_TRIGGERS_FILE ) );
 		define( 'SURE_TRIGGERS_URL', plugins_url( '/', SURE_TRIGGERS_FILE ) );
-		define( 'SURE_TRIGGERS_VER', '1.0.57' );
-		define( 'SURE_TRIGGERS_DB_VER', '1.0.57' );
+		define( 'SURE_TRIGGERS_VER', '1.0.61' );
+		define( 'SURE_TRIGGERS_DB_VER', '1.0.61' );
 		define( 'SURE_TRIGGERS_REST_NAMESPACE', 'sure-triggers/v1' );
 		define( 'SURE_TRIGGERS_SASS_URL', $sass_url . '/wp-json/wp-plugs/v1/' );
 		define( 'SURE_TRIGGERS_SITE_URL', $sass_url );
@@ -276,6 +279,8 @@ class Loader {
 	private function get_localized_array() {
 		$current_user = wp_get_current_user();
 
+		$source_type = get_option( 'suretriggers_source' );
+
 		$data = [
 			'siteContent'         => [
 				'siteUrl'      => str_replace( '/wp-json/', '', get_rest_url() ),
@@ -284,6 +289,7 @@ class Loader {
 				'connectUrl'   => SURE_TRIGGERS_SITE_URL . '/connect-st/connect',
 				'siteTitle'    => get_bloginfo( 'name' ),
 				'resetUrl'     => base64_encode( wp_nonce_url( admin_url( 'admin.php?st-reset=true' ), 'st-reset-action' ) ),
+				'sourceType'   => $source_type,
 			],
 			'user'                => [
 				'name'  => $current_user->display_name,
@@ -302,7 +308,7 @@ class Loader {
 		];
 
 		if ( current_user_can( 'manage_options' ) ) {
-			$data['siteContent']['accessKey']       = OptionController::get_option( 'secret_key' );
+			$data['siteContent']['accessKey']       = SaasApiToken::get();
 			$data['siteContent']['connected_email'] = OptionController::get_option( 'connected_email_key' );
 		}
 
@@ -320,7 +326,7 @@ class Loader {
 	}
 
 	/**
-	 * Menu callback
+	 * Menu callback.
 	 *
 	 * @since x.x.x
 	 *
@@ -390,5 +396,69 @@ class Loader {
 			wp_safe_redirect( admin_url( 'admin.php?page=suretriggers' ) );
 			exit();
 		}
+	}
+
+	/**
+	 * Custom Filter data.
+	 *
+	 * @return void
+	 */
+	public function suretriggers_stwp_iframe_data() {
+		add_filter( 'suretriggers_get_iframe_url', [ $this, 'suretriggers_iframe_data' ] );
+		add_filter( 'suretriggers_is_user_connected', [ $this, 'suretriggers_saas_connected_data' ] );
+	}
+
+	/**
+	 * Custom Filter data.
+	 *
+	 * @param string $site_url Optional. Site URL to include in the iframe data.
+	 * @return string
+	 */
+	public function suretriggers_iframe_data( $site_url = '' ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return apply_filters( 'suretriggers_get_iframe_url', [] );
+		}
+		$site_url          = esc_url_raw( $site_url );
+		$site_content_data = [
+			'stSaasURL' => $site_url . 'wp-login',
+			'stCode'    => SaasApiToken::get(),
+			'baseUrl'   => str_replace( '/wp-json/', '', get_rest_url() ),
+			'resetUrl'  => rtrim( base64_encode( wp_nonce_url( admin_url( 'admin.php?st-reset=true' ), 'st-reset-action' ) ), '=' ), // phpcs:ignore
+		];
+		$params            = [
+			'st-code'      => $site_content_data['stCode'],
+			'base_url'     => $site_content_data['baseUrl'],
+			'reset_url'    => $site_content_data['resetUrl'],
+			'redirect_url' => $site_url . 'embed-login',
+			'is_embedded'  => true,
+		];
+
+		if ( filter_var( $site_url, FILTER_VALIDATE_URL ) ) {
+			$iframe_url = add_query_arg( $params, $site_content_data['stSaasURL'] );
+		} else {
+			$default_url = trailingslashit( SURE_TRIGGERS_SITE_URL ) . '?path=dashboard';
+			$iframe_url  = add_query_arg( $params, $default_url );
+		}
+		return esc_url_raw( $iframe_url );
+	}
+	
+
+	/**
+	 * Custom Filter data to check if user is logged in iframe.
+	 *
+	 * @return bool
+	 */
+	public function suretriggers_saas_connected_data() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return apply_filters( 'suretriggers_is_user_connected', [] );
+		}
+		$token = SaasApiToken::get();
+
+		if ( '' === $token || null === $token || false === $token || 'connection-denied' === $token ) {
+			$logged_in = false;
+		} else {
+			$logged_in = true;
+		}
+		return $logged_in;
 	}
 }

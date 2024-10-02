@@ -91,7 +91,20 @@ if ( ! class_exists( 'MessageSent' ) ) :
 		 */
 		public function trigger_listener( $message_data ) {
 			
-			$context = $message_data;
+			$message_data_arr      = [
+				'sender'               => WordPress::get_user_context( $message_data['sender_id'] ),
+				'receiver'             => WordPress::get_user_context( $message_data['receiver_id'] ),
+				'service_id'           => $message_data['service_id'],
+				'message_text'         => $message_data['message_text'],
+				'attachment_file_name' => $message_data['attachment_file_name'],
+				'is_final_delivery'    => $message_data['is_final_delivery'],
+			];
+			$context               = $message_data_arr;
+			$upload_dir            = wp_upload_dir();
+			$attachment_file_names = json_decode( $message_data['attachment_file_name'], true );
+			foreach ( (array) $attachment_file_names as $attachment_file_name ) {
+				$context['attachment_file'][] = $upload_dir['baseurl'] . '/surelywp-services-data/' . $message_data['service_id'] . '/messages/' . $attachment_file_name;
+			}
 			AutomationController::sure_trigger_handle_trigger(
 				[
 					'trigger' => $this->trigger,

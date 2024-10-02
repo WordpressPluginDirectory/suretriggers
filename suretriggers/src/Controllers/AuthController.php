@@ -14,6 +14,7 @@
 namespace SureTriggers\Controllers;
 
 use SureCart\Models\ApiToken;
+use SureTriggers\Models\SaasApiToken;
 use SureTriggers\Traits\SingletonLoader;
 
 /**
@@ -50,7 +51,7 @@ class AuthController {
 	/**
 	 * Secret Key for authentication.
 	 *
-	 * @var string $secret_key
+	 * @var string|mixed $secret_key
 	 */
 	private $secret_key;
 
@@ -68,7 +69,7 @@ class AuthController {
 		$this->access_token           = OptionController::get_option( 'access_token' );
 		$this->connection_id          = OptionController::get_option( 'connection_id' );
 		$this->connected_integrations = OptionController::get_option( 'connected_integrations', [] );
-		$this->secret_key             = OptionController::get_option( 'secret_key' );
+		$this->secret_key             = SaasApiToken::get();
 		add_action( 'admin_init', [ $this, 'save_connection' ] );
 		add_action( 'updated_option', [ $this, 'updated_sc_api_key' ], 10, 3 );
 	}
@@ -113,7 +114,7 @@ class AuthController {
 		}
 
 		// delete the suretrigger_options from wp_options table once the connection is deleted on SAAS.
-		OptionController::set_option( 'secret_key', null );
+		SaasApiToken::save( null );
 
 		return RestController::success_message();
 
@@ -152,7 +153,9 @@ class AuthController {
 
 		$connected_email_id = isset( $_GET['connected_email'] ) ? sanitize_email( wp_unslash( $_GET['connected_email'] ) ) : '';
 
-		OptionController::set_option( 'secret_key', $access_key );
+		if ( isset( $access_key ) ) {
+			SaasApiToken::save( $access_key );
+		}
 		OptionController::set_option( 'connected_email_key', $connected_email_id );
 
 		/**
@@ -186,7 +189,7 @@ class AuthController {
 			return;
 		}
 
-		$secret_key      = OptionController::get_option( 'secret_key' );
+		$secret_key      = SaasApiToken::get();
 		$connected_email = OptionController::get_option( 'connected_email_key' );
 
 		wp_remote_post(

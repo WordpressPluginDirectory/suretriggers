@@ -84,20 +84,35 @@ if ( ! class_exists( 'RequirementSubmitted' ) ) :
 		/**
 		 * Trigger listener
 		 *
-		 * @param array $requirement_data Requirement Data.
+		 * @param string $requirements_data Requirements Data.
 		 * @since 1.0.0
 		 *
 		 * @return void
 		 */
-		public function trigger_listener( $requirement_data ) {
-			$context = $requirement_data;
-			AutomationController::sure_trigger_handle_trigger(
-				[
-					'trigger' => $this->trigger,
-					'context' => $context,
-				]
-			);
+		public function trigger_listener( $requirements_data ) {
+			global $wpdb;
+			if ( is_array( $requirements_data ) && ! empty( $requirements_data ) ) {
+				$service_result = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}surelywp_sv_services WHERE service_id = %d", $requirements_data[0]['service_id'] ), ARRAY_A );
+				$user_data      = WordPress::get_user_context( $service_result['user_id'] );
+				unset( $service_result['user_id'] );
+				$context = array_merge( $requirements_data, $service_result, $user_data );
+				foreach ( $requirements_data as $value ) {
+					if ( 'file' == $value['requirement_type'] ) {
+						$upload_dir            = wp_upload_dir();
+						$attachment_file_names = json_decode( $value['requirement'], true );
+						foreach ( (array) $attachment_file_names as $attachment_file_name ) {
+							$context['requirement_attachment_file'][] = $upload_dir['baseurl'] . '/surelywp-services-data/' . $value['service_id'] . '/requirement/' . $attachment_file_name;
+						}
+					}
+				}
 
+				AutomationController::sure_trigger_handle_trigger(
+					[
+						'trigger' => $this->trigger,
+						'context' => $context,
+					]
+				);
+			}
 		}
 	}
 

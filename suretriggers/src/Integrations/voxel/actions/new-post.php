@@ -86,14 +86,36 @@ class NewPost extends AutomateAction {
 
 		$post_fields = [];
 		foreach ( $selected_options['field_row_repeater'] as $key => $field ) {
-			$field_name                 = $field['value']['name'];
-			$value                      = trim( $selected_options['field_row'][ $key ][ $field_name ] );
-			$post_fields[ $field_name ] = $value;
+			$field_name = $field['value']['name'];
+			if ( 'repeater' == $field['value']['type'] ) {
+				if ( 'work-hours' == $field['value']['name'] ) {
+					$arr_value = $selected_options['field_row'][ $key ][ $field_name ];
+					foreach ( $arr_value as $key => $val ) {
+						$post_fields[ $field_name ][ $key ]['days']   = $val['work_days'];
+						$post_fields[ $field_name ][ $key ]['status'] = $val['work_status'];
+						if ( '' != $val['work_hours'] ) {
+							$hours = explode( '-', $val['work_hours'] );
+							$post_fields[ $field_name ][ $key ]['hours'][] = [
+								'from' => $hours[0],
+								'to'   => $hours[1],
+							];
+						}
+					}
+				} else {
+					$arr_value = $selected_options['field_row'][ $key ][ $field_name ];
+					foreach ( $arr_value as $key => $val ) {
+						$post_fields[ $field_name ][ $key ] = $val;
+					}
+				}
+			} else {
+				$value                      = trim( $selected_options['field_row'][ $key ][ $field_name ] );
+				$post_fields[ $field_name ] = $value;
+			}
 		}   
 		
 		$data = [
 			'post_type'   => $post_type,
-			'post_title'  => $post_fields['title'],
+			'post_title'  => isset( $post_fields['title'] ) && ! is_array( $post_fields['title'] ) ? (string) $post_fields['title'] : '',
 			'post_status' => isset( $selected_options['post_status'] ) && '' !== $selected_options['post_status'] ? $selected_options['post_status'] : 'draft',
 		];
 
