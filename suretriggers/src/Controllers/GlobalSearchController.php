@@ -32,6 +32,7 @@ use OsAgentHelper;
 use OsBookingHelper;
 use OsCustomerHelper;
 use OsServiceHelper;
+use OsServiceModel;
 use OsWpUserHelper;
 use PrestoPlayer\Models\Video;
 use RGFormsModel;
@@ -64,6 +65,7 @@ use WP_REST_Response;
 use WPForms_Form_Handler;
 use CP_V2_Popups;
 use Project_Huddle;
+use PH\Models\Post;
 use FrmForm;
 use Forminator_API;
 use SureTriggers\Integrations\LearnPress\LearnPress;
@@ -9232,6 +9234,9 @@ class GlobalSearchController {
 		global $wpdb;
 
 		$context = [];
+		if ( ! class_exists( 'PH\Models\Post' ) || ! function_exists( 'ph_get_the_title' ) ) {
+			return [];
+		}
 
 		if ( -1 !== $data['dynamic'] ) {
 			$threads = get_posts(
@@ -9281,14 +9286,21 @@ class GlobalSearchController {
 					$comments['comment_item_page_title'] = get_the_title( (int) $comment_item_id[0] );
 					$comments['comment_item_page_url']   = get_post_meta( (int) $comment_item_id[0], 'page_url', true );
 				}
+				if ( isset( $comment_id['comment_post_ID'] ) || isset( $comment_id['comment_author'] ) ) {
+					$comments['ph_project_name']   = ph_get_the_title( Post::get( $comment_id['comment_post_ID'] )->parentsIds()['project'] );
+					$comments['ph_commenter_name'] = $comment_id['comment_author'];
+					$comments['ph_project_type']   = ( get_post_type( $comment_id['comment_post_ID'] ) == 'ph-website' ) ? __( 'Website', 'suretriggers' ) : __( 'Mockup', 'suretriggers' );
+					$comments['ph_action_status']  = get_post_meta( $comment_id['comment_post_ID'], 'resolved', true ) ? __( 'Resolved', 'suretriggers' ) : __( 'Unresolved', 'suretriggers' );
+					$comments['ph_project_link']   = get_the_guid( $comment_id['comment_post_ID'] );
+				}
 
 				$context['pluggable_data'] = $comments;
 				$context['response_type']  = 'live';
 			} else {
-				$context = json_decode( '{"response_type":"sample","pluggable_data":{"comment_ID":"1","comment_post_ID":"1","comment_author":"test","comment_author_email":"test@test.com","comment_date":"2023-03-27 13:44:26","comment_content":"<p>Leave comment<\/p>","comment_type":"ph_comment"}}', true );
+				$context = json_decode( '{"response_type":"sample","pluggable_data":{"comment_ID":"1","comment_post_ID":"1","comment_author":"test","comment_author_email":"test@test.com","comment_date":"2023-03-27 13:44:26","comment_content":"<p>Leave comment<\/p>","comment_type":"ph_comment","comment_item_id": 9579, "comment_item_page_title": "About Us","comment_item_page_url": "https://example.com/about-us","ph_project_name":"Test","ph_commenter_name":"Admin","ph_project_type":"Mockup","ph_action_status":"Unresolved","ph_project_link":"https://example.com"}}', true );
 			}
 		} else {
-			$context = json_decode( '{"response_type":"sample","pluggable_data":{"comment_ID":"1","comment_post_ID":"1","comment_author":"test","comment_author_email":"test@test.com","comment_date":"2023-03-27 13:44:26","comment_content":"<p>Leave comment<\/p>","comment_type":"ph_comment","comment_item_id": 9579, "comment_item_page_title": "About Us","comment_item_page_url": "https://example.com/abotu-us"}}', true );
+			$context = json_decode( '{"response_type":"sample","pluggable_data":{"comment_ID":"1","comment_post_ID":"1","comment_author":"test","comment_author_email":"test@test.com","comment_date":"2023-03-27 13:44:26","comment_content":"<p>Leave comment<\/p>","comment_type":"ph_comment","comment_item_id": 9579, "comment_item_page_title": "About Us","comment_item_page_url": "https://example.com/about-us","ph_project_name":"Test","ph_commenter_name":"Admin","ph_project_type":"Mockup","ph_action_status":"Unresolved","ph_project_link":"https://example.com"}}', true );
 		}
 
 		return $context;
@@ -9304,6 +9316,9 @@ class GlobalSearchController {
 		global $wpdb;
 
 		$context = [];
+		if ( ! class_exists( 'PH\Models\Post' ) || ! function_exists( 'ph_get_the_title' ) ) {
+			return [];
+		}
 
 		$get_comments = $wpdb->get_row(
 			'SELECT  ' . $wpdb->prefix . 'comments.comment_ID, ' . $wpdb->prefix . 'comments.comment_content
@@ -9342,10 +9357,17 @@ class GlobalSearchController {
 				$comments['comment_item_page_title'] = get_the_title( (int) $comment_item_id[0] );
 				$comments['comment_item_page_url']   = get_post_meta( (int) $comment_item_id[0], 'page_url', true );
 			}
+			if ( isset( $comment_id['comment_post_ID'] ) || isset( $comment_id['comment_author'] ) ) {
+				$comments['ph_project_name']   = ph_get_the_title( Post::get( $comment_id['comment_post_ID'] )->parentsIds()['project'] );
+				$comments['ph_commenter_name'] = $comment_id['comment_author'];
+				$comments['ph_project_type']   = ( get_post_type( $comment_id['comment_post_ID'] ) == 'ph-website' ) ? __( 'Website', 'suretriggers' ) : __( 'Mockup', 'suretriggers' );
+				$comments['ph_action_status']  = get_post_meta( $comment_id['comment_post_ID'], 'resolved', true ) ? __( 'Resolved', 'suretriggers' ) : __( 'Unresolved', 'suretriggers' );
+				$comments['ph_project_link']   = get_the_guid( $comment_id['comment_post_ID'] );
+			}
 			$context['pluggable_data'] = $comments;
 			$context['response_type']  = 'live';
 		} else {
-			$context = json_decode( '{"response_type":"sample","pluggable_data":{"comment_ID":"1","comment_post_ID":"1","comment_author":"test","comment_author_email":"test@test.com","comment_date":"2023-03-27 13:44:26","comment_content":"<p>Leave comment<\/p>","comment_type":"ph_comment","comment_status":"Resolved","comment_item_id": 9579, "comment_item_page_title": "About Us","comment_item_page_url": "https://example.com/abotu-us" }}', true );
+			$context = json_decode( '{"response_type":"sample","pluggable_data":{"comment_ID":"1","comment_post_ID":"1","comment_author":"test","comment_author_email":"test@test.com","comment_date":"2023-03-27 13:44:26","comment_content":"<p>Leave comment<\/p>","comment_type":"ph_comment","comment_status":"Resolved","comment_item_id": 9579, "comment_item_page_title": "About Us","comment_item_page_url": "https://example.com/abotu-us","ph_project_name":"Test","ph_commenter_name":"Admin","ph_project_type":"Mockup","ph_action_status":"Unresolved","ph_project_link":"https://example.com" }}', true );
 		}
 
 		return $context;
@@ -14768,7 +14790,6 @@ class GlobalSearchController {
 							$booking['total_person_counts'] = $total_count;
 						}
 						$booking['bookable_product'] = $bookable_product_id;
-						$booking['bookable_product'] = $booking->get_product_id();
 						$context['response_type']    = 'live';
 						$context['pluggable_data']   = array_merge( $booking, WordPress::get_user_context( $booking['customer_id'] ) );
 					}
@@ -19305,6 +19326,35 @@ class GlobalSearchController {
 			$context = json_decode( '{"pluggable_data":{"group_name":"Test Group","group_description":"Testing Group","group_id":"2"},"response_type":"sample"}', true );
 		} else {
 			$context = json_decode( '{"pluggable_data":{"wp_user_id":2,"user_login":"johnd@gmail.com","display_name":"JohnD","user_firstname":"johnd","user_lastname":"johnd","user_email":"johnd@gmail.com","user_registered":"2023-01-19 09:14:50","user_role":["editor"],"group_id":"2","group_name":"Test Group","group_description":"Testing Group"},"response_type":"sample"}', true );
+		}
+		return (array) $context;
+	}
+
+	/**
+	 * Get Fluent SMTP Last Data
+	 *
+	 * @param array $data data.
+	 *
+	 * @return array
+	 */
+	public function search_fluent_smtp_last_data( $data ) {
+		$context = [];
+		global $wpdb;
+		$results = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fsmpt_email_logs WHERE status = 'failed' ORDER BY id DESC Limit 1", ARRAY_A );
+		if ( ! empty( $results ) ) {
+			$context['to']             = unserialize( $results['to'] );
+			$context['from']           = $results['from'];
+			$context['subject']        = $results['subject'];
+			$context['body']           = $results['body'];
+			$context['attachments']    = unserialize( $results['attachments'] );
+			$context['status']         = $results['status'];
+			$context['response']       = unserialize( $results['response'] );
+			$context['headers']        = unserialize( $results['headers'] );
+			$context['extra']          = unserialize( $results['extra'] );
+			$context['pluggable_data'] = $context;
+			$context['response_type']  = 'live';
+		} else {
+			$context = json_decode( '{"pluggable_data":{"to":[{"email":"johnd@example.com"}],"from":"johnd <johnd@example.com>","subject":"We received your message","body":"Your message has been successfully sent. We appreciate you contacting us and we will be in touch soon.\n<br><br>","attachments":[],"status":"failed","response":{"code":422,"message":"SMTP Error: data not accepted.","errors":["SMTP Error: data not accepted."]},"headers":{"reply-to":[{"email":"johnd@example.com"}],"cc":[],"bcc":[],"content-type":"text/html"},"extra":{"provider":"smtp"}},"response_type":"sample"}', true );
 		}
 		return (array) $context;
 	}

@@ -3,7 +3,7 @@ Contributors: sujaypawar, wpcrafter
 Tags: automation, google sheets, webhooks, schedule, SureCart
 Requires at least: 5.4
 Tested up to: 6.7
-Stable tag: 1.0.65
+Stable tag: 1.0.68
 Requires PHP: 5.6
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -326,6 +326,22 @@ Yes, if you have apps that are not yet integrated with SureTriggers, please subm
 4. Dashboard of your task consumption.
 
 == Changelog ==
+= Version 1.0.68 - Thursday, 19th December 2024 =
+* Improvement: "WordPress" - Added fix for twice running "Post Created / Updated" Trigger
+* Improvement: "SureFeedback" - Added improvements for response in Triggers
+* Improvement: "bbPress" - Added improvement to map forum ID in "Subscribe User in Forum" Action
+* Improvement: "LatePoint" - Added improvements to "Create Booking" and "Update Booking" Actions
+
+= Version 1.0.67 - Wednesday, 11th December 2024 =
+* New: Added "FluentSMTP" Integration
+* Improvement: "Presto Player" - Added improvements for creating posts with Presto Video URL in the "Create Media Hub" Action
+* Improvement: "WooCommerce Bookings" - Added fix for response in "Booking Created" Trigger
+* Improvement: "FluentCRM" - Added improvements in error status in Actions
+* Improvement: "ConvertPro" - Added improvements in response data in "Form Submitted" Trigger
+
+= Version 1.0.66 - Friday, 15th November 2024 =
+* Improvement: "WordPress" - Added fix for featured image response data in  WordPress Triggers
+
 = Version 1.0.65 - Wednesday, 13th November 2024 =
 * New: Added "ProfileGrid" Integration
 * Improvement: "WordPress" - Added improvements for featured image data in "Post Created" Trigger

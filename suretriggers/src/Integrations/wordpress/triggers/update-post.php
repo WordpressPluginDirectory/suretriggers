@@ -93,10 +93,21 @@ if ( ! class_exists( 'UpdatePost' ) ) :
 			if ( ! isset( $post->post_status ) ) {
 				return;
 			}
+			if ( 'auto-draft' === $post->post_status ) {
+				return;
+			}
+			if ( isset( $_POST['original_post_status'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+				if ( ! empty( $_POST ) || 'auto-draft' === $_POST['original_post_status'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+					return;
+				}
+			}
 			if ( 'draft' !== $post->post_status && ! wp_is_post_revision( $post_ID ) && ! wp_is_post_autosave( $post_ID ) ) {
-				$user_id                   = ap_get_current_user_id();
-				$context                   = WordPress::get_post_context( $post_ID );
-				$context['featured_image'] = wp_get_attachment_image_src( (int) get_post_thumbnail_id( $post_ID ), 'full' );
+				$user_id        = ap_get_current_user_id();
+				$context        = WordPress::get_post_context( $post_ID );
+				$featured_image = wp_get_attachment_image_src( (int) get_post_thumbnail_id( $post_ID ), 'full' );
+				if ( ! empty( $featured_image ) && is_array( $featured_image ) ) {
+					$context['featured_image'] = $featured_image[0];
+				}
 				if ( $post instanceof WP_Post ) {
 					$taxonomies = get_object_taxonomies( $post, 'objects' );
 					if ( ! empty( $taxonomies ) && is_array( $taxonomies ) ) {
