@@ -1,24 +1,24 @@
 <?php
 /**
- * SureEmails core integrations file
+ * SureMail core integrations file
  *
  * @since 1.0.0
  * @package SureTrigger
  */
 
-namespace SureTriggers\Integrations\SureEmails;
+namespace SureTriggers\Integrations\SureMail;
 
 use SureTriggers\Controllers\IntegrationsController;
 use SureTriggers\Integrations\Integrations;
 use SureTriggers\Traits\SingletonLoader;
-use SureEmails\Loader;
+use SureMails\Loader;
 
 /**
  * Class SureTrigger
  *
- * @package SureTriggers\Integrations\SureEmails
+ * @package SureTriggers\Integrations\SureMail
  */
-class SureEmails extends Integrations {
+class SureMail extends Integrations {
 
 
 	use SingletonLoader;
@@ -28,15 +28,15 @@ class SureEmails extends Integrations {
 	 *
 	 * @var string
 	 */
-	protected $id = 'SureEmails';
+	protected $id = 'SureMail';
 
 	/**
 	 * SureTrigger constructor.
 	 */
 	public function __construct() {
-		$this->name        = __( 'SureEmails', 'suretriggers' );
+		$this->name        = __( 'SureMail', 'suretriggers' );
 		$this->description = __( 'A simple yet powerful way to create modern forms for your website.', 'suretriggers' );
-		$this->icon_url    = SURE_TRIGGERS_URL . 'assets/icons/SureEmails.svg';
+		$this->icon_url    = SURE_TRIGGERS_URL . 'assets/icons/Suremails.svg';
 
 		parent::__construct();
 	}
@@ -52,4 +52,4 @@ class SureEmails extends Integrations {
 
 }
 
-IntegrationsController::register( SureEmails::class );
+IntegrationsController::register( SureMail::class );

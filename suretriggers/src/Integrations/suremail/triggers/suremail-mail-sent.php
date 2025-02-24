@@ -1,9 +1,9 @@
 <?php
 /**
- * SureEmailsMailFailed.
+ * SureMailMailSent.
  * php version 5.6
  *
- * @category SureEmailsMailFailed
+ * @category SureMailMailSent
  * @package  SureTriggers
  * @author   BSF <username@example.com>
  * @license  https://www.gnu.org/licenses/gpl-3.0.html GPLv3
@@ -11,17 +11,17 @@
  * @since    1.0.0
  */
 
-namespace SureTriggers\Integrations\SureEmails\Triggers;
+namespace SureTriggers\Integrations\SureMails\Triggers;
 
 use SureTriggers\Controllers\AutomationController;
 use SureTriggers\Traits\SingletonLoader;
 
-if ( ! class_exists( 'SureEmailsMailFailed' ) ) :
+if ( ! class_exists( 'SureMailMailSent' ) ) :
 
 	/**
-	 * SureEmailsMailFailed
+	 * SureMailMailSent
 	 *
-	 * @category SureEmailsMailFailed
+	 * @category SureMailMailSent
 	 * @package  SureTriggers
 	 * @author   BSF <username@example.com>
 	 * @license  https://www.gnu.org/licenses/gpl-3.0.html GPLv3
@@ -30,7 +30,7 @@ if ( ! class_exists( 'SureEmailsMailFailed' ) ) :
 	 *
 	 * @psalm-suppress UndefinedTrait
 	 */
-	class SureEmailsMailFailed {
+	class SureMailMailSent {
 
 
 		/**
@@ -38,7 +38,7 @@ if ( ! class_exists( 'SureEmailsMailFailed' ) ) :
 		 *
 		 * @var string
 		 */
-		public $integration = 'SureEmails';
+		public $integration = 'SureMail';
 
 
 		/**
@@ -46,7 +46,7 @@ if ( ! class_exists( 'SureEmailsMailFailed' ) ) :
 		 *
 		 * @var string
 		 */
-		public $trigger = 'sureemails_mail_failed';
+		public $trigger = 'suremail_mail_sent';
 
 		use SingletonLoader;
 
@@ -69,9 +69,9 @@ if ( ! class_exists( 'SureEmailsMailFailed' ) ) :
 		public function register( $triggers ) {
 
 			$triggers[ $this->integration ][ $this->trigger ] = [
-				'label'         => __( 'Mail Failed To Send', 'suretriggers' ),
+				'label'         => __( 'Mail Sent', 'suretriggers' ),
 				'action'        => $this->trigger,
-				'common_action' => 'wp_mail_failed',
+				'common_action' => 'wp_mail_succeeded',
 				'function'      => [ $this, 'trigger_listener' ],
 				'priority'      => 10,
 				'accepted_args' => 1,
@@ -79,7 +79,6 @@ if ( ! class_exists( 'SureEmailsMailFailed' ) ) :
 			return $triggers;
 
 		}
-
 
 		/**
 		 *  Trigger listener
@@ -105,6 +104,6 @@ if ( ! class_exists( 'SureEmailsMailFailed' ) ) :
 	 *
 	 * @psalm-suppress UndefinedMethod
 	 */
-	SureEmailsMailFailed::get_instance();
+	SureMailMailSent::get_instance();
 
 endif;
