@@ -72,6 +72,17 @@ class RoutesController {
 			]
 		);
 
+		// Create new connection.
+		register_rest_route(
+			SURE_TRIGGERS_REST_NAMESPACE,
+			'connection/create-wp-connection',
+			[
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => [ $rest_controller_obj, 'create_wp_connection' ],
+				'permission_callback' => '__return_true',
+			]
+		);
+
 		// Revoke acccess_token.
 		register_rest_route(
 			SURE_TRIGGERS_REST_NAMESPACE,

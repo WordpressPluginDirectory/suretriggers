@@ -1,9 +1,9 @@
-=== SureTriggers: All-in-One WordPress Automation ===
+=== SureTriggers: All-in-One Automation Platform ===
 Contributors: sujaypawar, wpcrafter
 Tags: automation, google sheets, webhooks, schedule, SureCart
 Requires at least: 5.4
 Tested up to: 6.7
-Stable tag: 1.0.73
+Stable tag: 1.0.78
 Requires PHP: 5.6
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -12,7 +12,7 @@ Experience the power of automation within WordPress: Connect 1,000+ apps, automa
 
 == Description ==
 
-**SURETRIGGERS – THE ALL IN ONE WORDPRESS AUTOMATION PLUGIN AND BEYOND**
+**SURETRIGGERS – THE ALL IN ONE AUTOMATION PLUGIN AND BEYOND**
 ★★★★★
 
 👉 [Official Website Link](https://suretriggers.com/)
@@ -328,6 +328,37 @@ Yes, if you have apps that are not yet integrated with SureTriggers, please subm
 6. Create new connections to create your automations.
 
 == Changelog ==
+= Version 1.0.78 - Tuesday, 1st April 2025 =
+* New: Added "FluentBoards" Integration
+* Improvement: "WordPress" - Added fix for the featured image response and updated the action hook in "Post Created / Updated" Trigger
+* Improvement: "WordPress" - Added fix for the taxonomy adding in "Create / Update Post" Action
+* Improvement: "UltimateMember" - Added fix for response data difference in "User logs in with a form" and "User registers with a form" Triggers
+* Improvement: "FluentCommunity" - Added improvements in actions for better flexibility
+* Improvement: "FluentCRM" - Added new "Add Note" Action
+* Improvement: "SureMail" - Added improvements in sample response for Triggers
+* Improvement: "Gravity Forms" - Added improvements in response data for form submission Triggers
+
+= Version 1.0.77 - Tuesday, 18th March 2025 =
+* Improvement: "LearnDash" - Added new "Find User Groups" Action
+* Improvement: "LearnPress" - Added improvements in "Enroll User to Course" and "Remove User from course" Actions
+* Improvement: "WordPress" - Added empty response improvements in "Assign Role To User" and "Remove Role from User" Actions
+* Improvement: "LatePoint" - Added new "Create Bundle Order" Action
+
+= Version 1.0.76 - Wednesday, 12th March 2025 =
+* Fixed: Added improvement to REST API route registration
+
+= Version 1.0.75 - Tuesday, 11th March 2025 =
+* New: Added "FluentCommunity" Integration
+* Improvement: "SureMail" - Added new "Mail Blocked" Trigger
+* Improvement: "WordPress" - Added new "Find Posts" and "Add Taxonomy to Post" Actions
+* Improvement: "WordPress" - Added improvement of featured image in "Post Created / Updated" Trigger
+* Improvement: Added new endpoint for connection creation with SureTriggers
+
+= Version 1.0.74 - Thursday, 27th February 2025 =
+* Improvement: "LatePoint" - Added Coupon Actions & Group Booking Support in Booking Actions
+* Improvement: Enhanced WordPress connection reliability by pinging our server twice and sending a notification if no ping is received
+* Improvement: "bbPress" - Added response data improvements in "Topic Created" and "Reply To Topic" Triggers
+
 = Version 1.0.73 - Monday, 24th February 2025 =
 * Improvement: "Fluent Support" - Added new "Block User" Action
 * Improvement: "Easy Digital Downloads" - Added improvement for "User has purchased a download" Action

@@ -69,7 +69,7 @@ class AddNewRole extends AutomateAction {
 	 * @param int   $automation_id automation_id.
 	 * @param array $fields fields.
 	 * @param array $selected_options selectedOptions.
-	 * @return bool
+	 * @return bool|array
 	 * @throws Exception Exception.
 	 */
 	public function _action_listener( $user_id, $automation_id, $fields, $selected_options ) {
@@ -81,7 +81,7 @@ class AddNewRole extends AutomateAction {
 		}
 		$user->add_role( $selected_options[ $field['name'] ] );
 
-		return true;
+		return (array) $user;
 	}
 
 }

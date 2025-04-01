@@ -83,6 +83,8 @@ use PeepSoField;
 use Mint\MRM\DataBase\Models\ContactModel;
 use Mint\MRM\DataBase\Models\ContactGroupModel;
 use SureTriggers\Integrations\Voxel\Voxel;
+use FluentBoards\App\Models\Stage;
+use FluentCommunity\App\Functions\Utility;
 use Surelywp_Support_Portal;
 use SureTriggers\Integrations\ProfileGrid\ProfileGrid;
 
@@ -417,16 +419,70 @@ class GlobalSearchController {
 	 * @return array
 	 */
 	public function search_pluggables_sureemails_mail( $data ) {
-		$context['pluggable_data']    = [
-			'to'          => [ 'johnDoe@xyz.com' ],
-			'subject'     => 'Test Email',
-			'message'     => 'This is a test email',
-			'headers'     => [ 'X-Mailer' => 'PHP/8.1.29' ],
-			'attachments' => [ 'Sample Attachment' ],
-		];
-			$context['response_type'] = 'sample';
+		$term    = isset( $data['search_term'] ) ? $data['search_term'] : '';
+		$context = [];
+
+		if ( 'mail_sent' === $term ) {
+			$context['pluggable_data'] = [
+				'to'          => [ 'johnDoe@xyz.com' ],
+				'subject'     => 'Test Email',
+				'message'     => 'This is a test email',
+				'headers'     => 'From: johnDoe@xyz.com,X-Mailer: PHP/8.1.22,Content-Type: text/html; charset=utf-8,Reply-To: johnDoe@xyz.com,Cc:johnDoe@xyz.com,Bcc:johnDoe@xyz.com',
+				'attachments' => [ 'Sample Attachment' ],
+			];
+			$context['response_type']  = 'sample';
+		} elseif ( 'mail_failed' === $term ) {
+			$context['pluggable_data'] = [
+				'errors'     => [
+					'wp_mail_failed' => [
+						'We were unable to send the email. Please ensure the recipient email address and sender configuration are correct. If the issue persists, contact support.',
+					],
+				],
+				'error_data' => [
+					'wp_mail_failed' => [
+						'to'          => 'johnDoe@xyz.com',
+						'subject'     => 'Test Email',
+						'message'     => 'This is a test email.',
+						'headers'     => 'From: johnDoe@xyz.com,X-Mailer: PHP/8.1.22,Content-Type: text/html; charset=utf-8,Reply-To: johnDoe@xyz.com,Cc:johnDoe@xyz.com,Bcc:johnDoe@xyz.com',
+						'attachments' => [ 'Sample Attachment' ],
+					],
+				],
+			];
+			$context['response_type']  = 'sample';
+		} elseif ( 'mail_blocked' === $term ) {
+			$context['pluggable_data'] = [
+				'to'          => 'johnDoe@xyz.com',
+				'subject'     => 'Test Email',
+				'message'     => 'This is a test email.',
+				'headers'     => 'From: johnDoe@xyz.com
+X-Mailer: PHP/8.1.22
+Content-Type: text/html; charset=utf-8
+Reply-To: johnDoe@xyz.com
+Cc:johnDoe@xyz.com Bcc:johnDoe@xyz.com',
+				'attachments' => [ 'Sample Attachment' ],
+				'categories'  => [
+					'harassment'             => 1,
+					'harassment/threatening' => 1,
+					'sexual'                 => 0,
+					'hate'                   => 0,
+					'hate/threatening'       => 0,
+					'illicit'                => 0,
+					'illicit/violent'        => 0,
+					'self-harm/intent'       => 0,
+					'self-harm/instructions' => 0,
+					'self-harm'              => 0,
+					'sexual/minors'          => 0,
+					'violence'               => 1,
+					'violence/graphic'       => 0,
+				],
+			];
+			$context['response_type']  = 'sample';
+		}
+
 		return $context;
 	}
+
+
 
 	/**
 	 * List Taxonomy Terms.
@@ -453,6 +509,50 @@ class GlobalSearchController {
 			'hasMore' => $terms['has_more'],
 		];
 	}
+
+	/**
+	 * List All Taxonomy Terms.
+	 *
+	 * @param array $data Search Params.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array
+	 */
+	public function search_term_list_for_all_taxonomy( $data ) {
+		$taxonomy = $data['dynamic'];
+		if ( ! is_array( $taxonomy ) ) {
+			$taxonomy = explode( ',', $taxonomy );
+			$taxonomy = array_map(
+				function ( $tax ) {
+					return [
+						'label' => trim( $tax ),
+						'value' => trim( $tax ),
+					];
+				},
+				$taxonomy 
+			);
+		}
+	
+		$result = [];
+		$terms  = [];
+		foreach ( $taxonomy as $tax ) {
+			$terms = Utilities::get_terms( '', $data['page'], $tax['value'] );
+	
+			foreach ( $terms['result'] as $tax_term ) {
+				$result[] = [
+					'label' => $tax_term->name . ' - ' . ucwords( $tax['label'] ),
+					'value' => $tax_term->term_id . '%-%' . $tax['value'],
+				];
+			}
+		}
+	
+		return [
+			'options' => $result,
+			'hasMore' => $terms['has_more'],
+		];
+	}
+	
 
 	/**
 	 * List Category Terms.
@@ -10876,6 +10976,7 @@ class GlobalSearchController {
 				];
 
 				$topic = [
+					'topic'             => $topic_id,
 					'topic_title'       => $topic,
 					'topic_link'        => $topic_link,
 					'topic_description' => $topic_description,
@@ -10934,6 +11035,7 @@ class GlobalSearchController {
 				];
 
 				$topic = [
+					'topic'             => $topic_id,
 					'topic_title'       => $topic,
 					'topic_link'        => $topic_link,
 					'topic_description' => $topic_description,
@@ -16609,6 +16711,34 @@ class GlobalSearchController {
 	}
 
 	/**
+	 * Prepare LatePoint Bundles List.
+	 *
+	 * @param array $data Search Params.
+	 * @return array
+	 */
+	public function search_lp_bundles_list( $data ) {
+		global $wpdb;
+	
+		$bundles = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}latepoint_bundles", ARRAY_A );
+	
+		$options = [];
+	
+		if ( ! empty( $bundles ) ) {
+			foreach ( $bundles as $bundle ) {
+				$options[] = [
+					'label' => $bundle['name'],
+					'value' => $bundle['id'],
+				];
+			}
+		}
+	
+		return [
+			'options' => $options,
+			'hasMore' => false,
+		];
+	}   
+
+	/**
 	 * Prepare LatePoint Agents List.
 	 *
 	 * @param array $data Search Params.
@@ -19597,53 +19727,157 @@ class GlobalSearchController {
 		return (array) $context;
 	}
 
-	/**
-	 * Get Fluent Boards Last Data
-	 *
-	 * @param array $data data.
-	 *
-	 * @return array
-	 */
+		/**
+		 * Get Fluent Boards Last Data
+		 *
+		 * @param array $data data.
+		 *
+		 * @return array
+		 */
 	public function search_fbs_triggers_last_data( $data ) {
-		$context = [];
+		if ( ! class_exists( '\FluentBoards\App\Models\Stage' ) ) {
+			return [];
+		}
 		global $wpdb;
-		$term = $data['search_term'] ? $data['search_term'] : '';
+		
+		$term = isset( $data['search_term'] ) ? $data['search_term'] : '';
 		if ( ! class_exists( 'FluentBoards\App\Models\Board' ) || ! class_exists( 'FluentBoards\App\Models\User' ) ) {
 			return [];
 		}
-		$data = [];
 		
-		if ( 'board_created' === $term ) {
-			$result = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fbs_boards ORDER BY id DESC Limit 1", ARRAY_A );
-		} elseif ( 'board_member_added' === $term ) {
-			$result = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fbs_relations WHERE object_type = 'board_user' ORDER BY id DESC Limit 1", ARRAY_A );
-		} elseif ( 'task_created' === $term ) {
-			$result = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fbs_tasks ORDER BY id DESC Limit 1", ARRAY_A );
+		$context = [];
+		$result  = null;
+		
+		switch ( $term ) {
+			case 'board_created':
+				$result = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fbs_boards ORDER BY id DESC LIMIT 1", ARRAY_A );
+				break;
+			case 'board_member_added':
+				$result = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fbs_relations WHERE object_type = 'board_user' ORDER BY id DESC LIMIT 1", ARRAY_A );
+				break;
+			case 'task_created':
+				$result = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fbs_tasks ORDER BY id DESC LIMIT 1", ARRAY_A );
+				break;
 		}
+		
 		if ( ! empty( $result ) ) {
-			if ( 'board_created' === $term ) {
-				$board_id                  = $result['id'];
-				$context['pluggable_data'] = \FluentBoards\App\Models\Board::findOrFail( $board_id );
-				$context['response_type']  = 'live';
-			} elseif ( 'board_member_added' === $term ) {
-				$context['pluggable_data']['board_id']     = $result['object_id'];
-				$context['pluggable_data']['board_member'] = \FluentBoards\App\Models\User::find( $result['foreign_id'] );
-				$context['response_type']                  = 'live';
-			} elseif ( 'task_created' === $term ) {
-				$context['pluggable_data'] = $result;
-				$context['response_type']  = 'live';
+			switch ( $term ) {
+				case 'board_created':
+					$context['pluggable_data'] = \FluentBoards\App\Models\Board::findOrFail( $result['id'] );
+					$context['response_type']  = 'live';
+					break;
+				case 'board_member_added':
+					$context['pluggable_data']['board_id']     = $result['object_id'];
+					$context['pluggable_data']['board_member'] = \FluentBoards\App\Models\User::find( $result['foreign_id'] );
+					$context['response_type']                  = 'live';
+					break;
+				case 'task_created':
+					$stage_data = Stage::where( 'board_id', $result['board_id'] )->whereNull( 'archived_at' )->first();
+					
+					$context['pluggable_data'] = [
+						'id'          => $result['id'],
+						'slug'        => $result['slug'],
+						'title'       => $result['title'],
+						'description' => $result['description'],
+						'type'        => $result['type'],
+						'board_id'    => $result['board_id'],
+						'stage_id'    => $result['stage_id'],
+						'position'    => $result['position'],
+						'priority'    => $result['priority'],
+						'created_at'  => $result['created_at'],
+						'created_by'  => $result['created_by'],
+						'updated_at'  => $result['updated_at'],
+						'settings'    => unserialize( $result['settings'] ),
+						'stage'       => $stage_data ? [
+							'id'         => $stage_data->id,
+							'slug'       => $stage_data->slug,
+							'title'      => $stage_data->title,
+							'type'       => $stage_data->type,
+							'board_id'   => $stage_data->board_id,
+							'position'   => $stage_data->position,
+							'settings'   => $stage_data->settings,
+							'created_at' => '',
+							'updated_at' => '',
+						] : null,
+					];
+					$context['response_type']  = 'live';
+					break;
 			}
 		} else {
-			if ( 'board_created' === $term ) {
-				$context = json_decode( '{"pluggable_data":{"id":2,"parent_id":null,"title":"testing","description":"testing","type":"to-do","currency":"USD","background":{"id":"solid_1","is_image":false,"image_url":null,"color":"#d1d8e0"},"settings":null,"created_by":"1","archived_at":null,"meta":[]},"response_type":"sample"}', true );
-			} elseif ( 'board_member_added' === $term ) {
-				$context = json_decode( '{"pluggable_data":{"board_id":"2","board_member":{"ID":1,"user_login":"johnd","user_nicename":"johnd","user_email":"johnd@example.com","user_url":"https://example.com","user_registered":"2023-01-16 09:23:31","user_status":"0","display_name":"johnd","photo":"https://www.gravatar.com/avatar/c2b06ae950033b392998ada50767b50e?s=128&d=https%3A%2F%2Fui-avatars.com%2Fapi%2Fodeploll/128"}},"response_type":"sample"}', true );
-			} elseif ( 'task_created' === $term ) {
-				$context = json_decode( '{"pluggable_data":{"id":"1","parent_id":null,"board_id":"1","crm_contact_id":null,"title":"Task1","slug":"task1","type":"task","status":"open","stage_id":"6","source":"web","source_id":null,"priority":"low","description":null,"lead_value":"0.00","created_by":"1","position":"1.00","comments_count":"0","issue_number":null,"reminder_type":"none","settings":"a:4:{s:5:\"cover\";a:1:{s:15:\"backgroundColor\";s:0:\"\";}s:13:\"subtask_count\";i:0;s:16:\"attachment_count\";i:0;s:23:\"subtask_completed_count\";i:0;}","remind_at":null,"started_at":null,"due_at":null,"last_completed_at":null,"archived_at":null,"created_at":"2024-10-14 17:11:20","updated_at":"2024-10-14 17:11:20"},"response_type":"sample"}', true );
+			switch ( $term ) {
+				case 'board_created':
+					$context = json_decode( '{"pluggable_data":{"id":2,"title":"testing","description":"This is a sample board.","type":"to-do","currency":"USD","background":{"color":"#d1d8e0","id":"solid_10"},"created_by":"1","isUserOnlyViewer":0},"response_type":"sample"}', true );
+					break;              
+				case 'board_member_added':
+					$context = json_decode( '{"pluggable_data":{"board_id":"2","board_member":{"ID":1,"user_login":"johnd","display_name":"johnd"}},"response_type":"sample"}', true );
+					break;
+				case 'task_created':
+					$context = json_decode( '{"pluggable_data":{"id":"1001","slug":"sample-task","title":"Sample Task","description":"This is a sample task.","type":"task","board_id":"10","stage_id":"3","position":"1","priority":"medium","created_at":"2024-03-20 12:00:00","created_by":"1","updated_at":"2024-03-20 12:30:00","settings":[],"stage":{"id":"3","slug":"sample-stage","title":"Sample Stage","type":"default","board_id":"10","position":"1","settings":[],"created_at":"2024-03-19 10:00:00","updated_at":"2024-03-20 11:00:00"}},"response_type":"sample"}', true ); 
+					break;
+					
 			}
 		}
+		
 		return (array) $context;
 	}
+
+
+	/**
+	 * Prepare FluentBoards Boards List.
+	 *
+	 * @param array $data Search Params.
+	 * @return array
+	 */
+	public function search_fbs_boards_list( $data ) {
+		global $wpdb;
+	
+		$boards = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}fbs_boards", ARRAY_A );
+	
+		$options = [];
+	
+		if ( ! empty( $boards ) ) {
+			foreach ( $boards as $board ) {
+				$options[] = [
+					'label' => $board['title'],
+					'value' => $board['id'],
+				];
+			}
+		}
+	
+		return [
+			'options' => $options,
+			'hasMore' => false,
+		];
+	}   
+
+	/**
+	 * Prepare FluentBoards Stages List.
+	 *
+	 * @param array $data Search Params.
+	 * @return array
+	 */
+	public function search_fbs_stages_list( $data ) {
+		if ( ! class_exists( '\FluentBoards\App\Models\Stage' ) ) {
+			return [];
+		}
+		$query   = Stage::where( 'board_id', $data['dynamic'] )->whereNull( 'archived_at' );
+		$stages  = $query->get();
+		$options = [];
+	
+		if ( ! empty( $stages ) ) {
+			foreach ( $stages as $stage ) {
+				$options[] = [
+					'label' => $stage['title'],
+					'value' => $stage['id'],
+				];
+			}
+		}
+	
+		return [
+			'options' => $options,
+			'hasMore' => false,
+		];
+	}   
 
 	/**
 	 * Get Profile Grid Last Data
@@ -19748,6 +19982,534 @@ class GlobalSearchController {
 		}
 		return (array) $context;
 	}
+	
+	/**
+	 * Get Fluent Community Last Data
+	 *
+	 * @param array $data data.
+	 *
+	 * @return array
+	 */
+	public function search_fc_triggers_last_data( $data ) {
+		$context        = [];
+		$space_result   = [];
+		$profile_result = [];
+		$user_result    = [];
+		$feed_data      = [];
+		$course_result  = [];
+		global $wpdb;
+		$term = $data['search_term'] ? $data['search_term'] : '';
+
+		$data = [];
+
+		if ( 'space_created' === $term || 'user_leaves_space' === $term || 'user_requests_join_space' === $term || 'feed_created' === $term || 'feed_updated' === $term || 'space_feed_created' === $term || 'user_joins_space' === $term ) {
+			$result       = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fcom_spaces ORDER BY id DESC LIMIT 1", ARRAY_A );
+			$space_result = [
+				'id'          => $result['id'],
+				'slug'        => $result['slug'],
+				'title'       => $result['title'],
+				'description' => $result['description'],
+				'type'        => $result['type'],
+				'privacy'     => $result['privacy'],
+				'status'      => $result['status'],
+				'serial'      => $result['serial'],
+				'created_at'  => $result['created_at'],
+				'created_by'  => $result['created_by'],
+				'updated_at'  => $result['updated_at'],
+				'settings'    => unserialize( $result['settings'] ),
+			];
+		}
+
+		if ( 'feed_created' === $term || 'feed_updated' === $term || 'space_feed_created' === $term ) {
+			$result         = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fcom_posts ORDER BY id DESC LIMIT 1", ARRAY_A );
+			$profile_result = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fcom_xprofile ORDER BY id DESC LIMIT 1", ARRAY_A );
+			$user_result    = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}users ORDER BY id DESC LIMIT 1", ARRAY_A );
+			$feed_data      = [
+				'feed' => [
+					'id'               => $result['id'],
+					'user_id'          => $result['user_id'],
+					'parentid'         => $result['parent_id'],
+					'title'            => $result['title'],
+					'slug'             => $result['slug'],
+					'message'          => $result['message'],
+					'message_rendered' => $result['message_rendered'],
+					'type'             => $result['type'],
+					'content_type'     => $result['content_type'],
+					'space_id'         => $result['space_id'],
+					'privacy'          => $result['privacy'],
+					'status'           => $result['status'],
+					'featured_image'   => $result['featured_image'],
+					'meta'             => unserialize( $result['meta'] ),
+					'issticky'         => $result['issticky'],
+					'comments_count'   => $result['comments_count'],
+					'reactions_count'  => $result['reactions_count'],
+					'priority'         => $result['priority'],
+					'expiredat'        => $result['expired_at'],
+					'scheduledat'      => $result['scheduled_at'],
+					'created_at'       => $result['created_at'],
+					'updated_at'       => $result['updated_at'],
+					'space'            => $space_result,
+					'xprofile'         => [
+						'id'                => $profile_result['id'],
+						'user_id'           => $profile_result['user_id'],
+						'total_points'      => $profile_result['total_points'],
+						'username'          => $profile_result['username'],
+						'status'            => $profile_result['status'],
+						'is_verified'       => $profile_result['is_verified'],
+						'display_name'      => $profile_result['display_name'],
+						'avatar'            => $profile_result['avatar'],
+						'short_description' => $profile_result['short_description'],
+						'last_activity'     => $profile_result['last_activity'],
+						'meta'              => unserialize( $profile_result['meta'] ),
+						'created_at'        => $profile_result['created_at'],
+						'updated_at'        => $profile_result['updated_at'],
+					],
+				],
+			];
+		}
+
+		if ( 'user_joins_space' === $term ) {
+			$user_result = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}users ORDER BY id DESC LIMIT 1", ARRAY_A );
+		}
+
+		if ( 'course_created' === $term || 'course_published' === $term || 'course_updated' === $term || 'user_enrolls_course' === $term || 'user_unenrolls_course' === $term || 'user_completes_course' === $term ) {
+			$result        = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fcom_spaces WHERE type = 'course' ORDER BY id DESC LIMIT 1", ARRAY_A );
+			$course_result = [
+				'id'          => $result['id'],
+				'slug'        => $result['slug'],
+				'title'       => $result['title'],
+				'serial'      => $result['serial'],
+				'status'      => $result['status'],
+				'privacy'     => $result['privacy'],
+				'created_at'  => $result['created_at'],
+				'created_by'  => $result['created_by'],
+				'updated_at'  => $result['updated_at'],
+				'description' => $result['description'],
+				'settings'    => unserialize( $result['settings'] ),
+			];
+		}
+
+		if ( 'course_deleted' === $term ) {
+			$result = $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}fcom_spaces WHERE type = 'course' ORDER BY id DESC LIMIT 1" );
+		}
+
+		if ( 'new_comment_added' === $term || 'comment_updated' === $term ) {
+			$result         = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fcom_post_comments ORDER BY id DESC LIMIT 1", ARRAY_A );
+			$profile_result = $wpdb->get_row( "SELECT * FROM {$wpdb->prefix}fcom_xprofile ORDER BY id DESC Limit 1", ARRAY_A );
+		}
+
+		if ( 'comment_deleted' === $term ) {
+			$result = $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}fcom_post_comments ORDER BY id DESC LIMIT 1" );
+		}
+
+		if ( ! empty( $result ) ) {
+			if ( 'space_created' === $term ) {
+				$context['pluggable_data'] = [ 'space' => $space_result ];
+				$context['response_type']  = 'live';
+			}
+	
+			if ( 'feed_created' === $term || 'feed_updated' === $term ) {
+				$context['pluggable_data'] = $feed_data;
+				$context['response_type']  = 'live';
+			}
+		
+			if ( 'space_feed_created' === $term ) {
+				$feed_data['feed']['user'] = [
+					'user_url'        => $user_result['user_url'],
+					'user_email'      => $user_result['user_email'],
+					'user_login'      => $user_result['user_login'],
+					'user_status'     => $user_result['user_status'],
+					'display_name'    => $user_result['display_name'],
+					'user_nicename'   => $user_result['user_nicename'],
+					'user_registered' => $user_result['user_registered'],
+				];
+				$context['pluggable_data'] = $feed_data;
+				$context['response_type']  = 'live';
+			}   
+	
+			if ( 'user_joins_space' === $term ) {
+				$context['pluggable_data'] = [
+					'space'  => [
+						'id'          => $result['id'],
+						'slug'        => $result['slug'],
+						'title'       => $result['title'],
+						'description' => $result['description'],
+						'type'        => $result['type'],
+						'privacy'     => $result['privacy'],
+						'status'      => $result['status'],
+						'serial'      => $result['serial'],
+						'created_at'  => $result['created_at'],
+						'created_by'  => $result['created_by'],
+						'updated_at'  => $result['updated_at'],
+						'settings'    => unserialize( $result['settings'] ),
+						'membership'  => [
+							'ID'               => $user_result['ID'],
+							'photo'            => '',
+							'pivot_role'       => 'admin',
+							'pivot_status'     => 'active',
+							'pivot_created_at' => $result['created_at'],
+							'pivot_user_id'    => $user_result['ID'],
+							'pivot_space_id'   => $result['id'],
+							'user_url'         => $user_result['user_url'],
+							'user_email'       => $user_result['user_email'],
+							'user_login'       => $user_result['user_login'],
+							'user_status'      => $user_result['user_status'],
+							'display_name'     => $user_result['display_name'],
+							'user_nicename'    => $user_result['user_nicename'],
+							'user_registered'  => $user_result['user_registered'],
+						],
+					],
+					'userId' => 1,
+					'by'     => 'self',
+				];
+				$context['response_type']  = 'live';
+			}
+			if ( 'user_leaves_space' === $term ) {
+				$context['pluggable_data'] = [
+					'space'  => $space_result,
+					'user'   => WordPress::get_sample_user_context(),
+					'userId' => 1,
+					'by'     => 'self',
+				];
+				$context['response_type']  = 'live';
+			}
+			if ( 'course_created' === $term || 'course_updated' === $term || 'course_published' === $term ) {
+				$context['pluggable_data'] = [
+					'course' => $course_result,
+				];
+				$context['response_type']  = 'live';
+			}
+	
+			if ( 'course_deleted' === $term ) {
+				$context['pluggable_data'] = [ 'course' => $result ];
+				$context['response_type']  = 'live';
+			}
+	
+			if ( 'comment_deleted' === $term ) {
+				$context['pluggable_data'] = [ 'comment_id' => $result ];
+				$context['response_type']  = 'live';
+			}
+			if ( 'new_comment_added' === $term || 'comment_updated' === $term ) {
+				$context['pluggable_data'] = [
+					'comment' => [
+						'id'               => $result['id'],
+						'user_id'          => $result['user_id'],
+						'post_id'          => $result['post_id'],
+						'parent_id'        => $result['parent_id'],
+						'reactions_count'  => $result['reactions_count'],
+						'message'          => $result['message'],
+						'message_rendered' => $result['message_rendered'],
+						'meta'             => unserialize( $result['meta'] ),
+						'type'             => $result['type'],
+						'content_type'     => $result['content_type'],
+						'status'           => $result['status'],
+						'is_sticky'        => $result['is_sticky'],
+						'created_at'       => $result['created_at'],
+						'updated_at'       => $result['updated_at'],
+						'xprofile'         => [
+							'id'                => $profile_result['id'],
+							'user_id'           => $profile_result['user_id'],
+							'total_points'      => $profile_result['total_points'],
+							'username'          => $profile_result['username'],
+							'status'            => $profile_result['status'],
+							'is_verified'       => $profile_result['is_verified'],
+							'display_name'      => $profile_result['display_name'],
+							'avatar'            => $profile_result['avatar'],
+							'short_description' => $profile_result['short_description'],
+							'last_activity'     => $profile_result['last_activity'],
+							'meta'              => unserialize( $profile_result['meta'] ),
+							'created_at'        => $profile_result['created_at'],
+							'updated_at'        => $profile_result['updated_at'],
+						],
+					],
+				];
+				$context['response_type']  = 'live';
+			}
+			if ( 'user_enrolls_course' === $term || 'user_unenrolls_course' === $term || 'user_completes_course' === $term ) {
+				$context['pluggable_data'] = [
+					'course' => $course_result,
+					'user'   => WordPress::get_sample_user_context(),
+					'userId' => 1,
+				];
+				$context['response_type']  = 'live';
+			}
+			if ( 'user_requests_join_space' === $term ) {
+				$context['pluggable_data'] = [
+					'space'  => $space_result,
+					'user'   => WordPress::get_sample_user_context(),
+					'userId' => 1,
+				];
+				$context['response_type']  = 'live';
+			}
+		} else {
+			$sample_space_data   = [
+				'id'          => 101,
+				'slug'        => 'sample-space',
+				'title'       => 'Sample Space',
+				'description' => 'This is a sample space description.',
+				'type'        => 'community',
+				'privacy'     => 'public',
+				'status'      => 'active',
+				'serial'      => 'SP101',
+				'created_at'  => '2025-01-01 10:00:00',
+				'created_by'  => 1,
+				'updated_at'  => '2025-01-05 12:00:00',
+				'settings'    => [
+					'coursetype'       => 'self_paced',
+					'emoji'            => '😍',
+					'shapesvg'         => null,
+					'disablecomments'  => 'no',
+					'hidememberscount' => 'no',
+				],
+			];
+			$sample_profile_data = [
+				'id'                => 1,
+				'user_id'           => 1,
+				'total_points'      => 100,
+				'username'          => 'sampleuser',
+				'status'            => 'active',
+				'is_verified'       => true,
+				'display_name'      => 'Sample User',
+				'avatar'            => 'https://example.com/avatar.jpg',
+				'short_description' => 'This is a sample user.',
+				'last_activity'     => '2025-01-08 15:00:00',
+				'meta'              => [
+					'website'    => 'https://example.com',
+					'coverphoto' => 'https://example.com/coverphoto.jpg',
+				],
+				'created_at'        => '2025-01-01 10:00:00',
+				'updated_at'        => '2025-01-05 12:00:00',
+			];
+				
+			if ( 'feed_created' === $term || 'feed_updated' === $term || 'space_feed_created' === $term ) {
+				$context['pluggable_data'] = [
+					'feed' => [
+						'id'              => 1,
+						'userid'          => 1,
+						'parentid'        => null,
+						'title'           => 'Sample Feed',
+						'slug'            => 'sample-feed',
+						'message'         => 'This is a sample message for the feed.',
+						'messagerendered' => '<p>This is a sample message for the feed.</p>',
+						'type'            => 'post',
+						'contenttype'     => 'text',
+						'space_id'        => 101,
+						'privacy'         => 'public',
+						'status'          => 'published',
+						'featuredimage'   => 'https://example.com/image.jpg',
+						'meta'            => [
+							'previewdata' => 0,
+						],
+						'issticky'        => false,
+						'commentscount'   => 10,
+						'reactionscount'  => 25,
+						'priority'        => 'normal',
+						'expiredat'       => null,
+						'scheduledat'     => '2025-01-10 08:00:00',
+						'createdat'       => '2025-01-09 09:00:00',
+						'updatedat'       => '2025-01-09 10:00:00',
+						'space'           => $sample_space_data,
+						'xprofile'        => $sample_profile_data,
+					],
+				];
+				$context['response_type']  = 'sample';
+			}
+			if ( 'space_feed_created' === $term ) {
+				$conext['pluggable_data']['feed']['user']      = [
+					'user_url'        => 'https://example.com/user/profile',
+					'user_email'      => 'user@example.com',
+					'user_login'      => 'sampleuser',
+					'user_status'     => 'active',
+					'display_name'    => 'Sample User',
+					'user_nicename'   => 'sample-user',
+					'user_registered' => '2024-01-01 00:00:00',
+				];
+				$context['pluggable_data']['feed']['space']    = $sample_space_data;
+				$context['pluggable_data']['feed']['xprofile'] = $sample_profile_data;
+				$context['response_type']                      = 'sample';
+			}
+			if ( 'user_joins_space' === $term ) {
+				$context['pluggable_data'] = [
+					'space'  => [
+						$sample_space_data,
+						'membership' => [
+							'ID'               => 25,
+							'photo'            => 'https://example.com/user-photo.jpg',
+							'pivot_role'       => 'admin',
+							'pivot_status'     => 'active',
+							'pivot_created_at' => '2025-01-24 09:00:00',
+							'pivot_user_id'    => 25,
+							'pivot_space_id'   => 100,
+							'user_url'         => 'https://example.com/user-profile',
+							'user_email'       => 'user@example.com',
+							'user_login'       => 'sampleuser',
+							'user_status'      => 'active',
+							'display_name'     => 'Sample User',
+							'user_nicename'    => 'sample-user',
+							'user_registered'  => '2024-01-01 00:00:00',
+						],
+					],
+					'userId' => 1,
+					'by'     => 'self',
+				];
+				$context['response_type']  = 'sample';
+			}
+
+			if ( 'user_leaves_space' === $term ) {
+				$context['pluggable_data'] = [
+					'space'  => $sample_space_data,
+					'user'   => WordPress::get_sample_user_context(),
+					'userId' => 35,
+					'by'     => 'self',
+				];
+				$context['response_type']  = 'sample';
+			}
+		
+			if ( 'new_comment_added' === $term || 'comment_updated' === $term ) {
+				$context['pluggable_data'] = [
+					'comment' => [
+						'id'               => 301,
+						'user_id'          => 45,
+						'post_id'          => 101,
+						'parent_id'        => 0,
+						'reactions_count'  => 5,
+						'message'          => 'This is a sample comment message.',
+						'message_rendered' => '<p>This is a sample comment message.</p>',
+						'meta'             => [
+							'likes'  => 3,
+							'shares' => 2,
+						],
+						'type'             => 'text',
+						'content_type'     => 'post',
+						'status'           => 'approved',
+						'is_sticky'        => false,
+						'created_at'       => '2025-01-23 10:30:00',
+						'updated_at'       => '2025-01-23 12:00:00',
+						'xprofile'         => $sample_profile_data,
+					],
+				];
+				$context['response_type']  = 'sample';
+			}
+		
+			if ( 'course_deleted' === $term ) {
+				$context['pluggable_data'] = [ 'course' => 2 ];
+				$context['response_type']  = 'sample';
+			}
+			if ( 'comment_deleted' === $term ) {
+				$context['pluggable_data'] = [ 'comment_id' => 1 ];
+				$context['response_type']  = 'sample';
+			}
+			if ( 'user_enrolls_course' === $term || 'user_unenrolls_course' === $term || 'user_completes_course' === $term ) {
+				$context['pluggable_data'] = [
+					'course' => $sample_space_data,
+					'user'   => WordPress::get_sample_user_context(),
+					'userId' => 1,
+				];
+				$context['response_type']  = 'sample';
+			}
+			if ( 'course_created' === $term || 'course_updated' === $term || 'course_published' === $term ) {
+				$context['pluggable_data'] = [
+					'course' => $sample_space_data,
+				];
+				$context['response_type']  = 'sample';
+			}
+			if ( 'user_requests_join_space' === $term ) {
+				$context['pluggable_data'] = [
+					'space'  => $sample_space_data,
+					'user'   => WordPress::get_sample_user_context(),
+					'userId' => 1,
+				];
+				$context['response_type']  = 'sample';
+			}       
+		}
+		return (array) $context;
+	}
+
+	/**
+	 * Prepare FluentCommunity Courses List.
+	 *
+	 * @param array $data Search Params.
+	 * @return array
+	 */
+	public function search_fc_courses_list( $data ) {
+		global $wpdb;
+	
+		$courses = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}fcom_spaces WHERE type = 'course' ", ARRAY_A );
+	
+		$options = [];
+	
+		if ( ! empty( $courses ) ) {
+			foreach ( $courses as $course ) {
+				$options[] = [
+					'label' => $course['title'],
+					'value' => $course['id'],
+				];
+			}
+		}
+	
+		return [
+			'options' => $options,
+			'hasMore' => false,
+		];
+	} 
+	
+	/**
+	 * Prepare FluentCommunity Spaces List.
+	 *
+	 * @param array $data Search Params.
+	 * @return array
+	 */
+	public function search_fc_spaces_list( $data ) {
+		global $wpdb;
+	
+		$spaces = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}fcom_spaces WHERE type NOT IN ('course', 'space_group')", ARRAY_A );
+
+		$options = [];
+	
+		if ( ! empty( $spaces ) ) {
+			foreach ( $spaces as $space ) {
+				$options[] = [
+					'label' => $space['title'],
+					'value' => $space['id'],
+				];
+			}
+		}
+	
+		return [
+			'options' => $options,
+			'hasMore' => false,
+		];
+	}  
+
+	/**
+	 * Prepare FluentCommunity Topics List.
+	 *
+	 * @param array $data Search Params.
+	 * @return array
+	 */
+	public function search_fc_topics_list( $data ) {
+		if ( ! class_exists( '\FluentCommunity\App\Functions\Utility' ) ) {
+			return [];
+		}
+
+		$space_topics = Utility::getTopicsBySpaceId( $data['dynamic'] );
+		
+		$options = [];
+	
+		if ( ! empty( $space_topics ) ) {
+			foreach ( $space_topics as $topic ) {
+				$options[] = [
+					'label' => $topic['title'],
+					'value' => $topic['id'],
+				];
+			}
+		}
+	
+		return [
+			'options' => $options,
+			'hasMore' => false,
+		];
+	}  
 
 }
 

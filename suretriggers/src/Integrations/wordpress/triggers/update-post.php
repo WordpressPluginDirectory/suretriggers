@@ -71,8 +71,9 @@ if ( ! class_exists( 'UpdatePost' ) ) :
 			$triggers[ $this->integration ][ $this->trigger ] = [
 				'label'         => __( 'User updates a post', 'suretriggers' ),
 				'action'        => $this->trigger,
+				'common_action' => 'wp_after_insert_post',
 				'function'      => [ $this, 'trigger_listener' ],
-				'priority'      => 10,
+				'priority'      => 20,
 				'accepted_args' => 3,
 			];
 
@@ -109,9 +110,11 @@ if ( ! class_exists( 'UpdatePost' ) ) :
 			if ( 'draft' !== $post->post_status && ! wp_is_post_revision( $post_ID ) && ! wp_is_post_autosave( $post_ID ) ) {
 				$user_id        = ap_get_current_user_id();
 				$context        = WordPress::get_post_context( $post_ID );
-				$featured_image = wp_get_attachment_image_src( (int) get_post_thumbnail_id( $post_ID ), 'full' )[0]; // @phpstan-ignore-line
+				$featured_image = wp_get_attachment_image_src( (int) get_post_thumbnail_id( $post_ID ), 'full' );
 				if ( ! empty( $featured_image ) && is_array( $featured_image ) ) {
 					$context['featured_image'] = $featured_image[0];
+				} else {
+					$context['featured_image'] = $featured_image;
 				}
 				if ( $post instanceof WP_Post ) {
 					$taxonomies = get_object_taxonomies( $post, 'objects' );

@@ -15,6 +15,7 @@ namespace SureTriggers\Controllers;
 
 use SureTriggers\Traits\SingletonLoader;
 use SureTriggers\Models\SaasApiToken;
+use SureTriggers\Controllers\RestController;
 
 /**
  * WebhookRequestsController- Store Webhook requests and retry for failed.
@@ -45,6 +46,7 @@ class WebhookRequestsController {
 	public function __construct() {
 		add_action( 'suretriggers_retry_failed_requests', [ $this, 'suretriggers_retry_failed_trigger_requests' ] );
 		add_action( 'suretriggers_webhook_requests_cleanup_logs', [ $this, 'suretriggers_cleanup_requests_logs' ] );
+		add_action( 'suretriggers_verify_api_connection', [ $this, 'suretriggers_verify_api_wp_connection' ] );
 		add_filter( 'cron_schedules', [ $this, 'suretriggers_custom_cron_schedule' ] );
 	}
 
@@ -65,9 +67,13 @@ class WebhookRequestsController {
 	 * @return array Filtered array of non-default cron schedules.
 	 */
 	public static function suretriggers_custom_cron_schedule( $schedules ) {
-		$schedules['suretriggers_retry_cron_schedule'] = [
+		$schedules['suretriggers_retry_cron_schedule']             = [
 			'interval' => 30 * MINUTE_IN_SECONDS,
 			'display'  => __( 'Every 30 minutes', 'suretriggers' ),
+		];
+		$schedules['suretriggers_verify_connection_cron_schedule'] = [
+			'interval' => 6 * HOUR_IN_SECONDS,
+			'display'  => __( 'Every 6 hours', 'suretriggers' ),
 		];
 		return $schedules;
 	}
@@ -115,6 +121,20 @@ class WebhookRequestsController {
 		// Clean up log requests that are older than 15 days.
 		if ( ! wp_next_scheduled( 'suretriggers_webhook_requests_cleanup_logs' ) ) {
 			wp_schedule_event( time(), 'daily', 'suretriggers_webhook_requests_cleanup_logs' );
+		}
+		
+		// Verify the API connection every 6 hours to keep the connection alive.
+		if ( ! wp_next_scheduled( 'suretriggers_verify_api_connection' ) ) {
+			wp_schedule_event( time(), 'suretriggers_verify_connection_cron_schedule', 'suretriggers_verify_api_connection' );
+		} else {
+			// Reschedule the event that was twice daily before to every 6 hours.
+			$get_scheduled_event = wp_get_scheduled_event( 'suretriggers_verify_api_connection' );
+			if ( $get_scheduled_event ) {
+				if ( 21600 !== $get_scheduled_event->interval ) {
+					wp_clear_scheduled_hook( 'suretriggers_verify_api_connection' );
+					wp_reschedule_event( time(), 'suretriggers_verify_connection_cron_schedule', 'suretriggers_verify_api_connection' );
+				}
+			}
 		}
 	}
 
@@ -250,16 +270,36 @@ class WebhookRequestsController {
 	}
 
 	/**
-	 * Delete failed webhook requests log that are 15 days older.
-	 * Delete success webhook requests log that are 3 days older.
+	 * Delete failed webhook requests log that are 60 days older.
+	 * Delete success webhook requests log that are 30 days older.
 	 * 
 	 * @return void
 	 */
 	public static function suretriggers_cleanup_requests_logs() {
 		global $wpdb;
 		$table_name = self::get_table_name();
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table_name} WHERE status = %s AND created_at < NOW() - INTERVAL %d DAY", 'failed', 15 ) ); //phpcs:ignore
-		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table_name} WHERE status = %s AND created_at < NOW() - INTERVAL %d DAY", 'success', 3 ) ); //phpcs:ignore
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table_name} WHERE status = %s AND created_at < NOW() - INTERVAL %d DAY", 'failed', 60 ) ); //phpcs:ignore
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$table_name} WHERE status = %s AND created_at < NOW() - INTERVAL %d DAY", 'success', 30 ) ); //phpcs:ignore
+	}
+
+	/**
+	 * Verify WordPress connection with SureTriggers API to check the connection status twice daily.
+	 * 
+	 * @return void
+	 */
+	public static function suretriggers_verify_api_wp_connection() {
+		$response = RestController::suretriggers_verify_wp_connection();
+		// Check if the response is valid.
+		if ( is_wp_error( $response ) ) {
+			update_option( 'suretriggers_verify_connection', 'suretriggers_connection_wp_error' );
+		} else {
+			$status_code = wp_remote_retrieve_response_code( $response );
+			if ( 200 !== $status_code ) {
+				update_option( 'suretriggers_verify_connection', 'suretriggers_connection_error' );
+			} else {
+				update_option( 'suretriggers_verify_connection', 'suretriggers_connection_successful' );
+			}
+		}
 	}
  
 	/**
@@ -283,15 +323,19 @@ class WebhookRequestsController {
 			wp_unschedule_event( $webhook_requests_cleanup, 'suretriggers_webhook_requests_cleanup_logs' );
 		}
 
+		// Remove connection verification cron schedule.
+		$webhook_requests_cleanup = wp_next_scheduled( 'suretriggers_verify_api_connection' );
+		if ( $webhook_requests_cleanup ) {
+			wp_unschedule_event( $webhook_requests_cleanup, 'suretriggers_verify_api_connection' );
+		}
+
 		// Delete table on plugin delete.
 		global $wpdb;
 		$table_name = self::get_table_name();
 		// Drop the custom table.
 		$table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) );
 		if ( $table_exists ) {
-			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-			$sql = "DROP TABLE IF EXISTS $table_name";
-			dbDelta( $sql );
+			$wpdb->query( "DROP TABLE IF EXISTS $table_name" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.SchemaChange
 		}
 	}
 

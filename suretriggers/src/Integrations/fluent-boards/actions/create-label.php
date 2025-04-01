@@ -1,9 +1,9 @@
 <?php
 /**
- * UpdateTask.
+ * CreateLabel.
  * php version 5.6
  *
- * @category UpdateTask
+ * @category CreateLabel
  * @package  SureTriggers
  * @author   BSF <username@example.com>
  * @license  https://www.gnu.org/licenses/gpl-3.0.html GPLv3
@@ -16,17 +16,19 @@ namespace SureTriggers\Integrations\FluentBoards\Actions;
 use Exception;
 use SureTriggers\Integrations\AutomateAction;
 use SureTriggers\Traits\SingletonLoader;
+use FluentBoards\App\Services\LabelService;
+
 /**
- * UpdateTask
+ * CreateLabel
  *
- * @category UpdateTask
+ * @category CreateLabel
  * @package  SureTriggers
  * @author   BSF <username@example.com>
  * @license  https://www.gnu.org/licenses/gpl-3.0.html GPLv3
  * @link     https://www.brainstormforce.com/
  * @since    1.0.0
  */
-class UpdateTask extends AutomateAction {
+class CreateLabel extends AutomateAction {
 
 
 	/**
@@ -41,7 +43,7 @@ class UpdateTask extends AutomateAction {
 	 *
 	 * @var string
 	 */
-	public $action = 'fbs_update_task';
+	public $action = 'fbs_create_label';
 
 	use SingletonLoader;
 
@@ -54,7 +56,7 @@ class UpdateTask extends AutomateAction {
 	public function register( $actions ) {
 
 		$actions[ $this->integration ][ $this->action ] = [
-			'label'    => __( 'Update Task', 'suretriggers' ),
+			'label'    => __( 'Create Label', 'suretriggers' ),
 			'action'   => $this->action,
 			'function' => [ $this, 'action_listener' ],
 		];
@@ -76,36 +78,34 @@ class UpdateTask extends AutomateAction {
 	 * @throws Exception Exception.
 	 */
 	public function _action_listener( $user_id, $automation_id, $fields, $selected_options ) {
-		$title    = $selected_options['title'] ? sanitize_text_field( $selected_options['title'] ) : '';
-		$task_id  = $selected_options['task_id'] ? sanitize_text_field( $selected_options['task_id'] ) : '';
-		$board_id = $selected_options['board_id'] ? sanitize_text_field( $selected_options['board_id'] ) : '';
-		$stage_id = $selected_options['stage_id'] ? sanitize_text_field( $selected_options['stage_id'] ) : '';
-		$priority = $selected_options['priority'] ? sanitize_text_field( $selected_options['priority'] ) : '';
-		$status   = $selected_options['status'] ? sanitize_text_field( $selected_options['status'] ) : '';
-
-		// Check if FluentBoardsApi function exists, if not, return early.
-		if ( ! function_exists( 'FluentBoardsApi' ) ) {
+		$title    = ! empty( $selected_options['title'] ) ? sanitize_text_field( $selected_options['title'] ) : '';
+		$board_id = ! empty( $selected_options['board_id'] ) ? sanitize_text_field( $selected_options['board_id'] ) : '';
+		$color    = ! empty( $selected_options['color'] ) ? sanitize_text_field( $selected_options['color'] ) : '';
+		$bg_color = ! empty( $selected_options['bg-color'] ) ? sanitize_text_field( $selected_options['bg-color'] ) : '';
+		
+		if ( ! class_exists( 'FluentBoards\App\Services\LabelService' ) ) {
 			return;
 		}
-		$task_data = array_filter(
+
+		$label_data = array_filter(
 			[
-				'title'    => $title,
+				'label'    => $title,
 				'board_id' => $board_id,
-				'stage_id' => $stage_id,
-				'priority' => $priority,
-				'status'   => $status,
+				'color'    => $color,
+				'bg_color' => $bg_color,
 			],
-			fn( $value) => '' !== $value
+			fn( $value ) => '' !== $value
 		);
-			foreach ( $task_data as $key => $value ) {
-				FluentBoardsApi( 'tasks' )->updateProperty( $task_id, $key, $value );
+		
+			$label_service = new LabelService();
+			$label         = $label_service->createLabel( $label_data, $board_id );
+		
+			if ( empty( $label ) ) {
+				throw new Exception( 'There was an error while creating the label.' );
 			}
-			$task = FluentBoardsApi( 'tasks' )->getTask( $task_id );
-			if ( empty( $task ) ) {
-				throw new Exception( 'There is error while creating a Task.' );
-			}
-			return $task; 
+
+			return $label;
 	}
 }
 
-UpdateTask::get_instance();
+CreateLabel::get_instance();

@@ -1,9 +1,9 @@
 <?php
 /**
- * AddUserToBoard.
+ * ListBundles.
  * php version 5.6
  *
- * @category AddUserToBoard
+ * @category ListBundles
  * @package  SureTriggers
  * @author   BSF <username@example.com>
  * @license  https://www.gnu.org/licenses/gpl-3.0.html GPLv3
@@ -11,24 +11,23 @@
  * @since    1.0.0
  */
 
-namespace SureTriggers\Integrations\FluentBoards\Actions;
+namespace SureTriggers\Integrations\LatePoint\Actions;
 
 use Exception;
 use SureTriggers\Integrations\AutomateAction;
 use SureTriggers\Traits\SingletonLoader;
-use FluentBoards\App\Services\BoardService;
-use FluentBoards\App\Models\Board;
+
 /**
- * AddUserToBoard
+ * ListBundles
  *
- * @category AddUserToBoard
+ * @category ListBundles
  * @package  SureTriggers
  * @author   BSF <username@example.com>
  * @license  https://www.gnu.org/licenses/gpl-3.0.html GPLv3
  * @link     https://www.brainstormforce.com/
  * @since    1.0.0
  */
-class AddUserToBoard extends AutomateAction {
+class ListBundles extends AutomateAction {
 
 
 	/**
@@ -36,14 +35,14 @@ class AddUserToBoard extends AutomateAction {
 	 *
 	 * @var string
 	 */
-	public $integration = 'FluentBoards';
+	public $integration = 'LatePoint';
 
 	/**
 	 * Action name.
 	 *
 	 * @var string
 	 */
-	public $action = 'fbs_add_user_to_board';
+	public $action = 'lp_get_all_bundles';
 
 	use SingletonLoader;
 
@@ -56,13 +55,12 @@ class AddUserToBoard extends AutomateAction {
 	public function register( $actions ) {
 
 		$actions[ $this->integration ][ $this->action ] = [
-			'label'    => __( 'Add User to Board', 'suretriggers' ),
+			'label'    => __( 'List Bundles', 'suretriggers' ),
 			'action'   => $this->action,
 			'function' => [ $this, 'action_listener' ],
 		];
 
 		return $actions;
-
 	}
 
 	/**
@@ -78,31 +76,17 @@ class AddUserToBoard extends AutomateAction {
 	 * @throws Exception Exception.
 	 */
 	public function _action_listener( $user_id, $automation_id, $fields, $selected_options ) {
-		$board_id = $selected_options['board_id'] ? sanitize_text_field( $selected_options['board_id'] ) : '';
-		$assignee = $selected_options['assignee'] ? sanitize_text_field( $selected_options['assignee'] ) : '';
-		if ( ! class_exists( 'FluentBoards\App\Services\BoardService' ) ) {
-			return;
-		}
-		if ( ! class_exists( 'FluentBoards\App\Models\Board' ) ) {
-			return;
-		}
-		
-		$board = \FluentBoards\App\Models\Board::find( $board_id );
 
-		if ( ! $board ) {
-			throw new Exception( __( 'Board not found.', 'suretriggers' ) );
-		}
-		$board_service = new BoardService();
-		$member        = $board_service->addMembersInBoard(
-			$board_id,
-			$assignee
-		);
+		global $wpdb;
+	
+		$bundles = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}latepoint_bundles", ARRAY_A );
 
-		return [
-			'board'  => $board,
-			'member' => $member,
-		];
+		if ( empty( $bundles ) ) {
+			return [ 'message' => 'No bundles found in the database.' ];
+		}
+
+		return $bundles;
 	}
 }
 
-AddUserToBoard::get_instance();
+ListBundles::get_instance();

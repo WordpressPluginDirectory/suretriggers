@@ -68,6 +68,75 @@ class RestController {
 	}
 
 	/**
+	 * Create WP Connection.
+	 * 
+	 * @param WP_REST_Request $request Request data.
+	 * @return WP_REST_Response
+	 */
+	public function create_wp_connection( $request ) {
+
+		$user_agent = $request->get_header( 'user-agent' );
+		if ( 'SureTriggers' !== $user_agent ) {
+			return new WP_REST_Response(
+				[
+					'success' => false,
+					'data'    => 'Unauthorized',
+				],
+				403
+			);
+		}
+		$params = $request->get_json_params();
+
+		$username = isset( $params['wp-username'] ) ? sanitize_text_field( $params['wp-username'] ) : '';
+		$password = isset( $params['wp-password'] ) ? $params['wp-password'] : '';
+
+		if ( empty( $username ) || empty( $password ) ) {
+			return new WP_REST_Response(
+				[
+					'success' => false,
+					'data'    => 'Username and password are required.',
+				],
+				400
+			);
+		}
+
+		$user = wp_authenticate_application_password( null, $username, $password );
+
+		if ( is_wp_error( $user ) ) {
+			return new WP_REST_Response(
+				[
+					'success' => false,
+					'data'    => 'Invalid username or password.',
+				],
+				403
+			);
+		}
+
+		$connection_status = $request->get_param( 'connection-status' );
+		$access_key        = $request->get_param( 'sure-triggers-access-key' );
+		$connected_email   = $request->get_param( 'connected_email' );
+
+		if ( false === $connection_status ) {
+			$access_key = 'connection-denied';
+		}
+		
+		$connected_email_id = isset( $connected_email ) ? sanitize_email( wp_unslash( $connected_email ) ) : '';
+
+		if ( isset( $access_key ) ) {
+			SaasApiToken::save( $access_key );
+		}
+		OptionController::set_option( 'connected_email_key', $connected_email_id );
+
+		return new WP_REST_Response(
+			[
+				'success' => true,
+				'data'    => 'Connected successfully.',
+			],
+			200
+		);
+	}
+
+	/**
 	 * Verify user token.
 	 * 
 	 * @return  array|WP_Error $response Response.
@@ -80,9 +149,29 @@ class RestController {
 				'base_url'   => str_replace( '/wp-json/', '', get_rest_url() ),
 			],
 			'sslverify' => false,
+			'timeout'   => 60, //phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout
 		];
-		$response = wp_remote_post( SURE_TRIGGERS_WEBHOOK_SERVER_URL . '/token/verify', $args );
+		$response = wp_remote_post( SURE_TRIGGERS_API_SERVER_URL . '/token/verify', $args );
 
+		return $response;
+	}
+
+	/**
+	 * Verify connection.
+	 * 
+	 * @return  array|WP_Error $response Response.
+	 */
+	public static function suretriggers_verify_wp_connection() {
+		$args     = [
+			'body'      => [
+				'saas-token'     => SaasApiToken::get(),
+				'base_url'       => str_replace( '/wp-json/', '', get_rest_url() ),
+				'plugin_version' => SURE_TRIGGERS_VER,
+			],
+			'sslverify' => false,
+			'timeout'   => 60, //phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout
+		];
+		$response = wp_remote_post( SURE_TRIGGERS_API_SERVER_URL . '/connection/wordpress/ping', $args );
 		return $response;
 	}
 
@@ -314,6 +403,7 @@ class RestController {
 			],
 			'body'      => json_decode( wp_json_encode( $trigger_data ), 1 ),
 			'sslverify' => false,
+			'timeout'   => 60, //phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout
 		];
 		
 		/**
