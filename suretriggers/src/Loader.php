@@ -22,7 +22,6 @@ use SureTriggers\Controllers\IntegrationsController;
 use SureTriggers\Controllers\OptionController;
 use SureTriggers\Controllers\RestController;
 use SureTriggers\Controllers\RoutesController;
-use SureTriggers\Controllers\SettingsController;
 use SureTriggers\Controllers\WebhookRequestsController;
 use SureTriggers\Traits\SingletonLoader;
 use SureTriggers\Models\SaasApiToken;
@@ -228,15 +227,15 @@ class Loader {
 	 * @since  1.0.0
 	 */
 	public function define_constants() {
-		$sass_url    = 'https://app.suretriggers.com';
-		$api_url     = 'https://api.suretriggers.com';
-		$webhook_url = 'https://webhook.suretriggers.com';
+		$sass_url    = 'https://app.ottokit.com';
+		$api_url     = 'https://api.ottokit.com';
+		$webhook_url = 'https://webhook.ottokit.com';
 		
 		define( 'SURE_TRIGGERS_BASE', plugin_basename( SURE_TRIGGERS_FILE ) );
 		define( 'SURE_TRIGGERS_DIR', plugin_dir_path( SURE_TRIGGERS_FILE ) );
 		define( 'SURE_TRIGGERS_URL', plugins_url( '/', SURE_TRIGGERS_FILE ) );
-		define( 'SURE_TRIGGERS_VER', '1.0.84' );
-		define( 'SURE_TRIGGERS_DB_VER', '1.0.84' );
+		define( 'SURE_TRIGGERS_VER', '1.0.87' );
+		define( 'SURE_TRIGGERS_DB_VER', '1.0.87' );
 		define( 'SURE_TRIGGERS_REST_NAMESPACE', 'sure-triggers/v1' );
 		define( 'SURE_TRIGGERS_SASS_URL', $sass_url . '/wp-json/wp-plugs/v1/' );
 		define( 'SURE_TRIGGERS_SITE_URL', $sass_url );
@@ -381,11 +380,6 @@ class Loader {
 		if ( empty( $settings ) ) {
 			$settings = (object) [];
 		}
-
-		$data['settingsForm'] = SettingsController::get_fields();
-		$data['settings']     = wp_json_encode( $settings );
-		$data['nonce']        = wp_create_nonce( 'st-nonce' );
-		$data['ajaxurl']      = esc_url( admin_url( 'admin-ajax.php', 'relative' ) );
 
 		return apply_filters( 'sure_trigger_control_localize_vars', $data );
 	}
@@ -564,7 +558,6 @@ class Loader {
 		AutomationController::get_instance();
 		AuthController::get_instance();
 		RoutesController::get_instance();
-		SettingsController::get_instance();
 		WebhookRequestsController::get_instance();
 
 		// SureTriggers Custom Filter data.

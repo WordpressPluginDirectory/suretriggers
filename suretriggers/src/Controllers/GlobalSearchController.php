@@ -131,6 +131,46 @@ class GlobalSearchController {
 	}
 
 	/**
+	 * Search download.
+	 *
+	 * @param array $data Search Params.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @return array
+	 */
+	public function search_download( $data ) {
+		$result = [];
+		$posts  = Utilities::find_posts_by_title( $data );
+	
+		foreach ( $posts['results'] as $post ) {
+			$result[] = [
+				'label' => $post['post_title'],
+				'value' => $post['ID'],
+			];
+
+			if ( 'download' === $post['post_type'] && function_exists( 'edd_has_variable_prices' ) && edd_has_variable_prices( $post['ID'] ) ) {
+				if ( function_exists( 'edd_get_variable_prices' ) ) {
+					$prices = edd_get_variable_prices( $post['ID'] );
+			
+					foreach ( $prices as $price_id => $price ) {
+						$result[] = [
+							'label' => $post['post_title'] . ': ' . $price['name'],
+							'value' => $post['ID'] . '_' . $price_id,
+						];
+					}
+				}
+			}       
+		}
+	
+		return [
+			'options' => $result,
+			'hasMore' => $posts['has_more'],
+		];
+	}   
+	
+
+	/**
 	 * Search Course.
 	 *
 	 * @param array $data quesry params.
@@ -2131,6 +2171,7 @@ Cc:johnDoe@xyz.com Bcc:johnDoe@xyz.com',
 	 * @return array
 	 */
 	public function search_spectra_forms( $data ) {
+		global $wpdb;
 		$form_posts = Utilities::get_uag_forms();
 
 		$options = [];
@@ -2146,6 +2187,35 @@ Cc:johnDoe@xyz.com Bcc:johnDoe@xyz.com',
 			$i      = 1;
 			// Get form blocks.
 			$this->process_blocks( $blocks, $form_post, $options, $i );
+		}
+
+		// Below is for Spectra forms from widgets.
+		$search_string  = '%wp-block-uagb-forms%';
+		$option_results = $wpdb->get_results(
+			$wpdb->prepare(
+				"
+			SELECT `option_name`, `option_value`
+			FROM {$wpdb->options}
+			WHERE (
+				option_name LIKE %s OR
+				option_name LIKE %s OR
+				option_name LIKE %s
+			)
+			AND option_value LIKE %s
+			",
+				'widget_%',
+				'theme_mods_%',
+				'customize_changeset_%',
+				$search_string
+			),
+			ARRAY_A 
+		);
+		if ( ! empty( $option_results ) ) {
+			foreach ( (array) $option_results as $form_post ) {
+				$blocks = parse_blocks( $form_post['option_value'] );
+				$i      = 1;
+				$this->process_blocks( $blocks, $form_post, $options, $i );
+			}
 		}
 	
 		return [
@@ -2167,8 +2237,30 @@ Cc:johnDoe@xyz.com Bcc:johnDoe@xyz.com',
 	public function process_blocks( $blocks, $form_post, &$options, &$i ) {
 		foreach ( $blocks as $block ) {
 			if ( 'uagb/forms' === $block['blockName'] ) {
+				$prefix = '';
+				if ( isset( $form_post['post_title'] ) && ! empty( $form_post['post_title'] ) ) {
+					$prefix = $form_post['post_title'] . ' - ';
+				} elseif (
+					isset( $form_post['option_value'] ) ) {
+					$option_value = maybe_unserialize( $form_post['option_value'] );
+					if ( is_array( $option_value ) ) {
+						foreach ( $option_value as $widget_block ) {
+							if (
+								isset( $widget_block['content'] )
+								&& is_string( $widget_block['content'] )
+								&& strpos( $widget_block['content'], 'uagb/forms' ) !== false
+							) {
+								if ( preg_match( '/"metadata"\s*:\s*{[^}]*"name"\s*:\s*"([^"]+)"/', $widget_block['content'], $matches ) ) {
+									$prefix = sanitize_text_field( $matches[1] ) . ' - ';
+									break;
+								}
+							}
+						}
+					}
+				}
+
 				$options[] = [
-					'label' => $form_post['post_title'] . ' (Form ' . ( $i++ ) . ')',
+					'label' => $prefix . $block['attrs']['block_id'] . ' (Form ' . ( $i++ ) . ')',
 					'value' => $block['attrs']['block_id'],
 				];
 			} elseif ( isset( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
@@ -2498,7 +2590,7 @@ Cc:johnDoe@xyz.com Bcc:johnDoe@xyz.com',
 					foreach ( $fetch_content as $content ) {
 						if ( 'form' === $content['name'] ) {
 							$options[] = [
-								'label' => $template->post_title . ' - ' . ( isset( $content['label'] ) ? $content['label'] : 'Form' ),
+								'label' => $template->post_title . ' - ' . ( isset( $content['label'] ) ? $content['label'] : 'Form' ) . ' ( ID: ' . $content['id'] . ')',
 								'value' => $content['id'],
 							];
 						}
@@ -4921,6 +5013,33 @@ Cc:johnDoe@xyz.com Bcc:johnDoe@xyz.com',
 
 		return $context;
 	}
+	/**
+	 * Prepare EDD Order Status List.
+	 *
+	 * @param array $data Search Params.
+	 * @return array{options: array<int, array{label: string, value: string}>, hasMore: bool}
+	 */
+	public function search_edd_order_status_list( $data ) {
+		$options = [];
+
+		if ( function_exists( 'edd_get_payment_statuses' ) ) {
+			$order_statuses = edd_get_payment_statuses();
+
+			if ( ! empty( $order_statuses ) ) {
+				foreach ( $order_statuses as $key => $label ) {
+					$options[] = [
+						'label' => $label,
+						'value' => $key,
+					];
+				}
+			}
+		}
+
+		return [
+			'options' => $options,
+			'hasMore' => false,
+		];
+	}
 
 	/**
 	 * Get last data for trigger.
@@ -4956,7 +5075,7 @@ Cc:johnDoe@xyz.com Bcc:johnDoe@xyz.com',
 			'license_key_expire_date' => '1697524076',
 			'license_key_status'      => 'inactive',
 		];
-
+		
 		$term        = isset( $data['search_term'] ) ? $data['search_term'] : '';
 		$download_id = isset( $data['filter']['download_id']['value'] ) ? $data['filter']['download_id']['value'] : 0;
 		if ( 'order_created' === $term || 'order_one_product' === $term ) {
@@ -4978,6 +5097,56 @@ Cc:johnDoe@xyz.com Bcc:johnDoe@xyz.com',
 				if ( 'order_one_product' === $term ) {
 					$order_data['price_id'] = 1;
 				}
+			}
+		} elseif ( 'order_status_changes' === $term ) {
+			$order_id = $wpdb->get_var( "SELECT id FROM {$wpdb->prefix}edd_orders ORDER BY id DESC LIMIT 1" );
+			if ( ! function_exists( 'edd_get_order' ) ) {
+				return $context;
+			}
+			$order = edd_get_order( $order_id );
+
+			if ( $order ) {
+				$downloads = [];
+
+				foreach ( $order->get_items() as $item ) {
+					$downloads[] = [
+						'id'       => $item->product_id,
+						'name'     => get_the_title( $item->product_id ),
+						'quantity' => $item->quantity,
+						'price'    => $item->price,
+					];
+				}
+
+				$context['pluggable_data'] = [
+					'order_id'     => $order_id,
+					'customer_id'  => $order->customer_id,
+					'email'        => $order->email,
+					'total'        => $order->total,
+					'downloads'    => $downloads,
+					'date_created' => $order->date_created,
+					'old_status'   => 'completed',
+					'new_status'   => 'pending',
+				];
+				$context['response_type']  = 'live';
+			} else {
+				$context['pluggable_data'] = [
+					'order_id'     => 123,
+					'customer_id'  => 5,
+					'email'        => 'sample@example.com',
+					'total'        => 25.00,
+					'downloads'    => [
+						[
+							'id'       => 101,
+							'name'     => 'Sample Product',
+							'quantity' => 1,
+							'price'    => 25.00,
+						],
+					],
+					'date_created' => current_time( 'mysql' ),
+					'old_status'   => 'completed',
+					'new_status'   => 'pending',
+				];
+				$context['response_type']  = 'sample';
 			}
 		} elseif ( 'stripe_payment_refunded' === $term ) {
 			$args     = [
@@ -5029,7 +5198,9 @@ Cc:johnDoe@xyz.com Bcc:johnDoe@xyz.com',
 			}
 		}
 
-		$context['pluggable_data'] = $order_data;
+		if ( empty( $context['pluggable_data'] ) ) {
+			$context['pluggable_data'] = $order_data; 
+		}
 		return $context;
 	}
 
@@ -10062,6 +10233,34 @@ Cc:johnDoe@xyz.com Bcc:johnDoe@xyz.com',
 			'hasMore' => false,
 		];
 	}
+
+	/**
+	 * Prepare FluentSupport Agents List.
+	 *
+	 * @param array $data Search Params.
+	 * @return array
+	 */
+	public function search_fluent_support_agents_list( $data ) {
+		global $wpdb;
+	
+		$agents = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}fs_persons WHERE person_type = 'agent' ", ARRAY_A );
+	
+		$options = [];
+	
+		if ( ! empty( $agents ) ) {
+			foreach ( $agents as $agent ) {
+				$options[] = [
+					'label' => $agent['email'],
+					'value' => $agent['id'],
+				];
+			}
+		}
+	
+		return [
+			'options' => $options,
+			'hasMore' => false,
+		];
+	} 
 
 	/**
 	 * Get last data for trigger.
